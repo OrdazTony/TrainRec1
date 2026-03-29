@@ -1,21 +1,24 @@
-import './App.css'
-import { Routes, Route, Link, Navigate } from 'react-router-dom'
-import Login from './Pages/Login'
-import Dashboard from './Pages/Dashboard'
+import React from 'react'
+import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom'
+import ResponsiveAppBar from './Components/ResponsiveAppBar'
+import Dashboard from './Components/Dashboard'
+import Workouts from './Components/Workouts'
+import Progress from './Components/Progress'
+
+
 
 export default function App() {
   return (
     <>
-      <nav>
-        <Link to="/login">Login</Link> |{' '}
-        <Link to="/dashboard">Dashboard</Link>
-      </nav>
+      <ResponsiveAppBar />
+        <Routes>
+          <Route path="/" element={<Dashboard />}></Route>
+          <Route path='/workouts' element={<Workouts />}></Route>
+          <Route path='/progress' element={<Progress />}></Route>
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
 
-      <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-      </Routes>
     </>
   )
 }
+
