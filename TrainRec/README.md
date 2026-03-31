@@ -1,16 +1,65 @@
-# React + Vite
+# TrainRec
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A fitness tracking web application built with React and Vite.
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Make sure you have the following installed before running the project:
 
-## React Compiler
+- [Node.js](https://nodejs.org/) (v18 or later recommended)
+- npm (comes with Node.js) or [yarn](https://yarnpkg.com/)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Dependencies
 
-## Expanding the ESLint configuration
+### Runtime Dependencies
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+| Package | Version | Purpose |
+|---|---|---|
+| `react` | ^19.2.0 | UI library |
+| `react-dom` | ^19.2.0 | React DOM renderer |
+| `react-router-dom` | ^7.13.1 | Client-side routing |
+| `@mui/material` | ^7.3.9 | Material UI component library |
+| `@mui/icons-material` | ^7.3.9 | Material UI icons |
+| `@mui/styled-engine-sc` | ^7.3.9 | MUI styled engine |
+| `@emotion/react` | ^11.14.0 | CSS-in-JS runtime (required by MUI) |
+| `@emotion/styled` | ^11.14.1 | Styled component support for Emotion |
+| `styled-components` | ^6.3.12 | CSS-in-JS styling |
+
+### Dev Dependencies
+
+| Package | Purpose |
+|---|---|
+| `vite` | Build tool and dev server |
+| `@vitejs/plugin-react` | React Fast Refresh support for Vite |
+| `eslint` | Linting |
+
+## Getting Started
+
+1. **Clone the repository** and navigate to the project directory:
+
+   ```bash
+   cd TrainRec1/TrainRec
+   ```
+
+2. **Install dependencies:**
+
+   ```bash
+   npm install
+   ```
+
+3. **Start the development server:**
+
+   ```bash
+   npm run dev
+   ```
+
+   The app will be available at `http://localhost:5173` by default. 
+
+## Available Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the development server with HMR |
+| `npm run build` | Build the app for production |
+| `npm run preview` | Preview the production build locally |
+| `npm run lint` | Run ESLint across the project |
