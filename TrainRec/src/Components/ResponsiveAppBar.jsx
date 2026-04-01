@@ -11,7 +11,7 @@ import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
-import AdbIcon from '@mui/icons-material/Adb';
+import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import { Link } from 'react-router-dom';
 
 const pages = ['Dashboard', 'Workouts', 'Progress'];
@@ -40,7 +40,7 @@ function ResponsiveAppBar() {
     <AppBar position="static">
       <Container maxWidth="xl">
         <Toolbar disableGutters>
-          <AdbIcon sx={{ display: { xs: 'none', md: 'flex' }, mr: 1 }} />
+          <RadioButtonCheckedIcon sx={{ display: { xs: 'none', md: 'flex' }, mr: 1, fontSize: '4rem' }} />
           <Typography
             variant="h6"
             noWrap
@@ -49,9 +49,10 @@ function ResponsiveAppBar() {
             sx={{
               mr: 2,
               display: { xs: 'none', md: 'flex' },
-              fontFamily: 'monospace',
+              fontFamily: '"Boldonse", system-ui',
               fontWeight: 700,
-              letterSpacing: '.3rem',
+              fontSize: '2rem',
+              letterSpacing: '.1rem',
               color: 'inherit',
               textDecoration: 'none',
             }}
@@ -97,7 +98,7 @@ function ResponsiveAppBar() {
               ))}
             </Menu>
           </Box>
-          <AdbIcon sx={{ display: { xs: 'flex', md: 'none' }, mr: 1 }} />
+          <RadioButtonCheckedIcon sx={{ display: { xs: 'flex', md: 'none' }, mr: 1, fontSize: '4rem' }} />
           <Typography
             variant="h5"
             noWrap
@@ -107,12 +108,12 @@ function ResponsiveAppBar() {
               mr: 2,
               display: { xs: 'flex', md: 'none' },
               flexGrow: 1,
-              fontFamily: 'monospace',
+              fontFamily: '"Boldonse", system-ui',
               fontWeight: 700,
-              letterSpacing: '.3rem',
+              fontSize: '2rem',
+              letterSpacing: '.1rem',
               color: 'inherit',
               textDecoration: 'none',
-              
             }}
           >
             TrainREC
@@ -131,7 +132,7 @@ function ResponsiveAppBar() {
           <Box sx={{ flexGrow: 0 }}>
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <Avatar alt="Remy Sharp" src="/static/images/avatar/2.jpg" />
+                <Avatar alt="" src="/static/images/avatar/2.jpg" />
               </IconButton>
             </Tooltip>
             <Menu
