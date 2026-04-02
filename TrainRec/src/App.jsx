@@ -6,6 +6,7 @@ import ResponsiveAppBar from './Components/ResponsiveAppBar'
 import Dashboard from './Components/Dashboard'
 import Workouts from './Components/Workouts'
 import Progress from './Components/Progress'
+import Weather from './Components/Weather'
 
 export default function App() {
   const [theme, colorMode] = useMode();
@@ -19,6 +20,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path='/workouts' element={<Workouts />} />
             <Route path='/progress' element={<Progress />} />
+            <Route path='/weather' element={<Weather />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
       </ThemeProvider>
