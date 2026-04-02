@@ -40,39 +40,39 @@ export const tokens = (mode) => ({
         },
       }
     : {
-        // LIGHT THEME → AQUA
+        // LIGHT THEME → ORANGE
         primary: {
-          100: '#e0f7f7',
-          200: '#b3efef',
-          300: '#80e6e6',
-          400: '#4ddcdc',
-          500: '#00b3b3', // main aqua
-          600: '#009999',
-          700: '#007f7f',
-          800: '#006666',
-          900: '#004d4d',
+          100: '#fff3e6',
+          200: '#ffe0bf',
+          300: '#ffcc99',
+          400: '#ffb366',
+          500: '#ff8c42', // main orange
+          600: '#e6762f',
+          700: '#bf5f24',
+          800: '#99491a',
+          900: '#663011',
         },
         accent: {
-          100: '#e6fffb',
-          200: '#b3fff5',
-          300: '#80ffee',
-          400: '#4dffe8',
-          500: '#00e6d2', // bright aqua accent
-          600: '#00b3a3',
-          700: '#008073',
-          800: '#004d44',
-          900: '#002622',
+          100: '#fff7ed',
+          200: '#ffedd5',
+          300: '#fed7aa',
+          400: '#fdba74',
+          500: '#fb923c', // accent orange
+          600: '#ea7b20',
+          700: '#c26114',
+          800: '#9a4b10',
+          900: '#7c3d0f',
         },
         neutral: {
-          100: '#f7fafa',
-          200: '#eef5f5',
-          300: '#e0eeee',
-          400: '#cce3e3',
-          500: '#f2f0f0', // background
-          600: '#a1a4ab',
-          700: '#727681',
-          800: '#434957',
-          900: '#141b2d',
+          100: '#fffaf5',
+          200: '#fff1e6',
+          300: '#ffe6d1',
+          400: '#f5d6c0',
+          500: '#fff4ec', // warm background
+          600: '#b8a89a',
+          700: '#8e7f73',
+          800: '#63584f',
+          900: '#2c251f',
         },
       }),
 });
@@ -82,7 +82,7 @@ export const themesettings = (mode) => {
   return {
     palette: {
       mode,
-      primary: { main: colors.primary[500] },
+      primary: { main: colors.primary[600] },
       secondary: { main: colors.accent[500] },
       background: {
         default: mode === 'dark' ? colors.neutral[600] : colors.neutral[500],

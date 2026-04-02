@@ -12,7 +12,11 @@ import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import { useTheme } from '@mui/material/styles';
 import { Link } from 'react-router-dom';
+import { colorModeContext } from '../themes';
 
 const pages = ['Dashboard', 'Workouts', 'Progress'];
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
@@ -20,6 +24,8 @@ const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
 function ResponsiveAppBar() {
   const [anchorElNav, setAnchorElNav] = React.useState(null);
   const [anchorElUser, setAnchorElUser] = React.useState(null);
+  const theme = useTheme();
+  const colorMode = React.useContext(colorModeContext);
 
   const handleOpenNavMenu = (event) => {
     setAnchorElNav(event.currentTarget);
@@ -129,6 +135,14 @@ function ResponsiveAppBar() {
               </Button>
             ))}
           </Box>
+          <Box display="flex" justifyContent={"space-between"} p={2}>
+            <Tooltip title="Toggle light/dark mode">
+              <IconButton onClick={colorMode.toggleColorMode}>
+                {theme.palette.mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
+            </Tooltip>
+          </Box>
+              
           <Box sx={{ flexGrow: 0 }}>
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
