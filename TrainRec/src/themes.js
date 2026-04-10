@@ -1,42 +1,42 @@
 import { createContext, useState, useMemo } from "react";
-import { createTheme } from "@mui/material/styles";
+import { alpha, createTheme } from "@mui/material/styles";
 
 export const tokens = (mode) => ({
   ...(mode === 'dark'
     ? {
-        // DARK THEME → PURPLE + ORANGE
+        // DARK THEME → CUSTOM PURPLE / BLUE / SOFT CONTRAST PALETTE
         primary: {
-          100: '#e6e1f5',
-          200: '#c2b8eb',
-          300: '#9e90e0',
-          400: '#7a67d6',
-          500: '#4b2e83', // main deep purple
-          600: '#3c2569',
-          700: '#2d1c4f',
-          800: '#1e1234',
-          900: '#0f091a',
+          100: '#ffebc6',
+          200: '#c9d5b5',
+          300: '#a69cac',
+          400: '#7a7897',
+          500: '#474973',
+          600: '#383b5c',
+          700: '#2b2e47',
+          800: '#1f2540',
+          900: '#161b33',
         },
         accent: {
-          100: '#ffe5d0',
-          200: '#ffc299',
-          300: '#ff9f66',
-          400: '#ff7a33',
-          500: '#ff6b00', // main orange
-          600: '#cc5500',
-          700: '#994000',
-          800: '#662a00',
-          900: '#331500',
+          100: '#ffebc6',
+          200: '#f0dcc0',
+          300: '#c9d5b5',
+          400: '#b6b0bf',
+          500: '#a69cac',
+          600: '#8c8292',
+          700: '#706777',
+          800: '#564f5d',
+          900: '#3a3440',
         },
         neutral: {
-          100: '#dcd6f7',
-          200: '#b9adef',
-          300: '#9685e6',
-          400: '#735cde',
-          500: '#3a3a48', // dark surface
-          600: '#323240',
-          700: '#2a2a36',
-          800: '#23232d',
-          900: '#1d1d25',
+          100: '#ffebc6',
+          200: '#d8d1c4',
+          300: '#a69cac',
+          400: '#6d708f',
+          500: '#474973',
+          600: '#232845',
+          700: '#1c213d',
+          800: '#161b33',
+          900: '#101426',
         },
       }
     : {
@@ -82,10 +82,28 @@ export const themesettings = (mode) => {
   return {
     palette: {
       mode,
-      primary: { main: colors.primary[600] },
-      secondary: { main: colors.accent[500] },
+      primary: {
+        main: mode === 'dark' ? colors.primary[300] : colors.primary[600],
+        light: mode === 'dark' ? colors.primary[100] : colors.primary[300],
+        dark: mode === 'dark' ? colors.primary[700] : colors.primary[800],
+      },
+      secondary: {
+        main: mode === 'dark' ? colors.accent[100] : colors.accent[500],
+        light: mode === 'dark' ? colors.accent[100] : colors.accent[300],
+        dark: mode === 'dark' ? colors.accent[500] : colors.accent[700],
+      },
       background: {
-        default: mode === 'dark' ? colors.neutral[600] : colors.neutral[500],
+        default: mode === 'dark' ? colors.neutral[800] : colors.neutral[500],
+        paper: mode === 'dark' ? colors.neutral[700] : '#ffffff',
+      },
+      text: {
+        primary: mode === 'dark' ? colors.neutral[100] : colors.neutral[900],
+        secondary: mode === 'dark' ? colors.neutral[200] : colors.neutral[700],
+      },
+      divider: mode === 'dark' ? alpha(colors.primary[200], 0.28) : colors.neutral[300],
+      action: {
+        hover: mode === 'dark' ? alpha(colors.primary[200], 0.12) : alpha(colors.primary[600], 0.08),
+        selected: mode === 'dark' ? alpha(colors.primary[200], 0.2) : alpha(colors.primary[600], 0.12),
       },
     },
     typography: {

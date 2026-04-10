@@ -11,7 +11,7 @@ import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
-import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
+import SvgIcon from '@mui/material/SvgIcon';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import { useTheme } from '@mui/material/styles';
@@ -21,11 +21,31 @@ import { colorModeContext } from '../themes';
 const pages = ['Dashboard', 'Workouts', 'Progress', 'Weather'];
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
 
+function GradientRadioIcon({ startColor, endColor, ...props }) {
+  const gradientId = React.useId();
+
+  return (
+    <SvgIcon {...props} viewBox="0 0 24 24">
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={startColor} />
+          <stop offset="100%" stopColor={endColor} />
+        </linearGradient>
+      </defs>
+      <circle cx="12" cy="12" r="8.5" fill="none" stroke={`url(#${gradientId})`} strokeWidth="2.2" />
+      <circle cx="12" cy="12" r="4.5" fill={`url(#${gradientId})`} />
+    </SvgIcon>
+  );
+}
+
 function ResponsiveAppBar() {
   const [anchorElNav, setAnchorElNav] = React.useState(null);
   const [anchorElUser, setAnchorElUser] = React.useState(null);
   const theme = useTheme();
   const colorMode = React.useContext(colorModeContext);
+  const gradientStart = theme.palette.mode === 'dark' ? '#7c4dff' : '#fff4e8';
+  const gradientEnd = theme.palette.mode === 'dark' ? '#a855f7' : '#ffc78f';
+  const moodGradient = `linear-gradient(135deg, ${gradientStart} 0%, ${gradientEnd} 100%)`;
 
   const handleOpenNavMenu = (event) => {
     setAnchorElNav(event.currentTarget);
@@ -46,7 +66,16 @@ function ResponsiveAppBar() {
     <AppBar position="static">
       <Container maxWidth="xl">
         <Toolbar disableGutters>
-          <RadioButtonCheckedIcon sx={{ display: { xs: 'none', md: 'flex' }, mr: 1, fontSize: '4rem' }} />
+          {/* Brand logo and title - desktop */}
+          <GradientRadioIcon
+            startColor={gradientStart}
+            endColor={gradientEnd}
+            sx={{
+              display: { xs: 'none', md: 'flex' },
+              mr: 1,
+              fontSize: '4rem',
+            }}
+          />
           <Typography
             variant="h6"
             noWrap
@@ -59,13 +88,16 @@ function ResponsiveAppBar() {
               fontWeight: 700,
               fontSize: '2rem',
               letterSpacing: '.1rem',
-              color: 'inherit',
               textDecoration: 'none',
+              background: moodGradient,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
             }}
           >
             TrainREC
           </Typography>
 
+          {/* Mobile navigation menu */}
           <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none' } }}>
             <IconButton
               size="large"
@@ -104,7 +136,15 @@ function ResponsiveAppBar() {
               ))}
             </Menu>
           </Box>
-          <RadioButtonCheckedIcon sx={{ display: { xs: 'flex', md: 'none' }, mr: 1, fontSize: '4rem' }} />
+          <GradientRadioIcon
+            startColor={gradientStart}
+            endColor={gradientEnd}
+            sx={{
+              display: { xs: 'flex', md: 'none' },
+              mr: 1,
+              fontSize: '4rem',
+            }}
+          />
           <Typography
             variant="h5"
             noWrap
@@ -118,12 +158,15 @@ function ResponsiveAppBar() {
               fontWeight: 700,
               fontSize: '2rem',
               letterSpacing: '.1rem',
-              color: 'inherit',
               textDecoration: 'none',
+              background: moodGradient,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
             }}
           >
             TrainREC
           </Typography>
+          {/* Desktop navigation links */}
           <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
             {pages.map((page) => (
               <Button
@@ -135,6 +178,7 @@ function ResponsiveAppBar() {
               </Button>
             ))}
           </Box>
+          {/* Theme mode toggle */}
           <Box display="flex" justifyContent={"space-between"} p={2}>
             <Tooltip title="Toggle light/dark mode">
               <IconButton onClick={colorMode.toggleColorMode}>
@@ -143,6 +187,7 @@ function ResponsiveAppBar() {
             </Tooltip>
           </Box>
               
+          {/* User avatar and settings menu */}
           <Box sx={{ flexGrow: 0 }}>
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
