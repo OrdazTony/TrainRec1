@@ -7,6 +7,7 @@ import Dashboard from './Components/Dashboard'
 import Workouts from './Components/Workouts'
 import Progress from './Components/Progress'
 import Weather from './Components/Weather'
+import GymLocator from './Components/GymLocator'
 
 export default function App() {
   const [theme, colorMode] = useMode();
@@ -21,6 +22,7 @@ export default function App() {
             <Route path='/workouts' element={<Workouts />} />
             <Route path='/progress' element={<Progress />} />
             <Route path='/weather' element={<Weather />} />
+            <Route path='/gymlocator' element={<GymLocator/>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
       </ThemeProvider>

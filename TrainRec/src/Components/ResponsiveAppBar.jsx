@@ -18,7 +18,7 @@ import { useTheme } from '@mui/material/styles';
 import { Link } from 'react-router-dom';
 import { colorModeContext } from '../themes';
 
-const pages = ['Dashboard', 'Workouts', 'Progress', 'Weather'];
+const pages = ['Dashboard', 'Workouts', 'Progress', 'Weather', 'GymLocator'];
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
 
 function ResponsiveAppBar() {
