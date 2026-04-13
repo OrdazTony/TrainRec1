@@ -15,7 +15,7 @@ import SvgIcon from '@mui/material/SvgIcon';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import { useTheme } from '@mui/material/styles';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { colorModeContext } from '../themes';
 
 const pages = ['Dashboard', 'Workouts', 'Progress', 'Weather', 'GymLocator'];
@@ -41,6 +41,7 @@ function GradientRadioIcon({ startColor, endColor, ...props }) {
 function ResponsiveAppBar() {
   const [anchorElNav, setAnchorElNav] = React.useState(null);
   const [anchorElUser, setAnchorElUser] = React.useState(null);
+  const navigate = useNavigate();
   const theme = useTheme();
   const colorMode = React.useContext(colorModeContext);
   const gradientStart = theme.palette.mode === 'dark' ? '#7c4dff' : '#fff4e8';
@@ -58,8 +59,21 @@ function ResponsiveAppBar() {
     setAnchorElNav(null);
   };
 
-  const handleCloseUserMenu = () => {
+  const handleCloseUserMenu = (setting) => {
     setAnchorElUser(null);
+    
+    if (!setting || typeof setting !== 'string') return; // Safety check
+
+    if (setting === 'Logout') {
+      localStorage.removeItem('token'); // Clear the session
+      navigate('/login');
+    } else if (setting === 'Profile') {
+      navigate('/profile');
+    } else if (setting === 'Account') {
+      navigate('/account');
+    } else if (setting === 'Dashboard') {
+      navigate('/');
+    }
   };
 
   return (
@@ -211,7 +225,7 @@ function ResponsiveAppBar() {
               onClose={handleCloseUserMenu}
             >
               {settings.map((setting) => (
-                <MenuItem key={setting} onClick={handleCloseUserMenu}>
+                <MenuItem key={setting} onClick={() => handleCloseUserMenu(setting)}>
                   <Typography sx={{ textAlign: 'center' }}>{setting}</Typography>
                 </MenuItem>
               ))}

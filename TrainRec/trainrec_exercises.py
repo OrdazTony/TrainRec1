@@ -1,8 +1,14 @@
-from flask import Flask, jsonify, requestgit config pull.rebase false && git pull origin main
+from flask import Flask, jsonify, request, g
 from flask_cors import CORS
 import json # Used for saving and loading session metadata and landmarks in JSON format.
 import os # Used for file system operations like creating directories and saving files.
 import uuid
+import sqlite3                                
+from datetime import datetime, timedelta
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
+import jwt
+from datetime import datetime, timezone, timedelta
 from datetime import datetime, timezone #Used for timestamping session start and end times in a standardized format.
 from pathlib import Path # Used for easier path manipulations and ensuring cross-platform compatibility when saving session data.
 
@@ -11,6 +17,45 @@ app = Flask(__name__)
 # This allows your team's React app (port 5173) to access this API (port 5000)
 CORS(app)
 
+
+DB_PATH = "trainrec.db"
+JWT_SECRET = "replace-with-a-very-secret-key"
+JWT_ALGORITHM = "HS256"
+
+def get_db():
+    db = getattr(g, "_database", None)
+    if db is None:
+        db = g._database = sqlite3.connect(DB_PATH)
+        db.row_factory = sqlite3.Row
+    return db
+
+@app.teardown_appcontext
+def close_connection(exception):
+    db = getattr(g, "_database", None)
+    if db is not None:
+        db.close()
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, name TEXT, nickname TEXT, password_hash TEXT, sex TEXT, birthdate TEXT, height_in REAL, weight_lb REAL, fitness_activity TEXT, created_at TEXT)")
+    c.execute("CREATE TABLE IF NOT EXISTS goals (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, target_weight_lb REAL, weekly_weight_change_lb REAL, activity_level TEXT, daily_calorie_target REAL, updated_at TEXT)")
+    c.execute("CREATE TABLE IF NOT EXISTS completed_workouts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, exercise_name TEXT, calories_burned REAL, completed_at TEXT)")
+    conn.commit()
+    conn.close()
+
+def auth_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "): return jsonify({"error": "Unauthorized"}), 401
+        try:
+            token = auth.split(" ")[1]
+            data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            request.user_id = data.get("user_id")
+        except: return jsonify({"error": "Invalid token"}), 401
+        return fn(*args, **kwargs)
+    return wrapper
 #Guarantees the data directory exists for storing pose session data. 
 #Each session will be saved as a JSON file with a unique name based on the timestamp and a random UUID to avoid collisions.
 #This is where Abdiel's section will read from to display past workout sessions and their associated pose data.
@@ -57,6 +102,233 @@ EXERCISES = [
 # ---------------------------------------------------------
 # API ROUTES
 # ---------------------------------------------------------
+
+@app.route("/register", methods=["POST"])
+def register():
+    payload = request.get_json()
+    db = get_db()
+
+    email = payload.get("email", "").lower().strip()
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+        
+    pw_hash = generate_password_hash(payload["password"])
+    
+    try:
+        db.execute("""
+            INSERT INTO users (email, name, nickname, password_hash, sex, birthdate, height_in, weight_lb, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            email, 
+            payload.get("name"), 
+            payload.get("nickname"), 
+            pw_hash, 
+            payload.get("sex"), 
+            payload.get("birthdate"), 
+            payload.get("height_in"), 
+            payload.get("weight_lb"), 
+            datetime.now(timezone.utc).isoformat()
+        ))
+        db.commit()
+
+        # 4. Get the user ID for the token
+        user = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        
+        token = jwt.encode({
+            'user_id': user['id'],
+            'exp': datetime.now(timezone.utc) + timedelta(hours=24)
+        }, "JWT_SECRET", algorithm="HS256")
+
+        return jsonify({"message": "Account Created", "token": token}), 201
+
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "User already exists"}), 400
+    except Exception as e:
+        print(f"ERROR: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+@app.route("/login", methods=["POST"])
+def login():
+    payload = request.get_json() or {}
+    email = payload.get("email", "").lower()
+    password = payload.get("password", "")
+
+    db = get_db()
+    # Find the user by email
+    user = db.execute("SELECT id, password_hash FROM users WHERE email = ?", (email,)).fetchone()
+
+    if user and check_password_hash(user["password_hash"], password):
+        # Using now(timezone.utc) is more reliable than utcnow()
+        token = jwt.encode(
+            {
+                "user_id": user["id"], 
+                "exp": datetime.now(timezone.utc) + timedelta(hours=24),
+                "iat": datetime.now(timezone.utc) # "Issued At" - ensures uniqueness
+            }, 
+            JWT_SECRET, 
+            algorithm=JWT_ALGORITHM
+        )
+        return jsonify({
+            "message": "Logged in successfully",
+            "token": token
+        }), 200
+
+    return jsonify({"error": "Invalid email or password"}), 401
+
+@app.route("/reset_password", methods=["POST"])
+def reset_password():
+    data = request.get_json()
+    email = data.get("email")
+    new_pw = data.get("new_password")
+
+    if not email or not new_pw:
+        return jsonify({"error": "Email and new password are required"}), 400
+
+    db = get_db()
+    
+    # Check if the user actually exists first
+    user = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+    if not user:
+        return jsonify({"error": "No account found with that email"}), 404
+
+    # Update using the EMAIL, not the ID
+    db.execute("UPDATE users SET password_hash = ? WHERE email = ?", 
+               (generate_password_hash(new_pw), email))
+    db.commit()
+    
+    return jsonify({"message": "Password updated successfully"}), 200
+
+@app.route("/me/update_profile", methods=["POST"])
+@auth_required
+def update_profile():
+    payload = request.get_json()
+    db = get_db()
+    # Dynamic update for weight, height, nickname, and fitness activity
+    for key in ["weight_lb", "height_in", "nickname", "fitness_activity"]:
+        if key in payload:
+            db.execute(f"UPDATE users SET {key} = ? WHERE id = ?", (payload[key], request.user_id))
+    db.commit()
+    return jsonify({"message": "Profile updated"})
+
+@app.route("/goals", methods=["POST"])
+def set_goals():
+    payload = request.get_json()
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (request.user_id,)).fetchone()
+    
+    calories = calculate_daily_calories(user["sex"], user["weight_lb"], user["height_in"], 
+                                       user["birthdate"], payload["activity_level"], payload["weekly_weight_change_lb"])
+
+    db.execute("""INSERT INTO goals (user_id, target_weight_lb, weekly_weight_change_lb, activity_level, daily_calorie_target, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?)""", 
+               (request.user_id, payload["target_weight_lb"], payload["weekly_weight_change_lb"], 
+                payload["activity_level"], calories, datetime.utcnow().isoformat()))
+    db.commit()
+    return jsonify({"message": "Goal set", "daily_calories": calories})
+
+@app.route("/me/full_profile", methods=["GET"])
+def get_full_profile():
+    db = get_db()
+    # 1. Fetch User Info (including the new bio field)
+    user = db.execute("SELECT name, email, nickname, sex, birthdate, height_in, weight_lb, bio FROM users WHERE id = ?", (request.user_id,)).fetchone()
+    
+    # 2. Fetch Total Calories
+    total_cal = db.execute("SELECT SUM(calories_burned) as total FROM completed_workouts WHERE user_id = ?", (request.user_id,)).fetchone()
+    
+    # 3. Fetch Last 5 Workouts
+    history = db.execute("SELECT exercise_name, completed_at FROM completed_workouts WHERE user_id = ? ORDER BY completed_at DESC LIMIT 5", (request.user_id,)).fetchall()
+
+    if user:
+        res = dict(user)
+        res["total_calories"] = total_cal["total"] or 0
+        res["history"] = [dict(row) for row in history]
+        return jsonify(res)
+    return jsonify({"error": "User not found"}), 404
+
+@app.route("/update_bio", methods=["POST"])
+def update_bio():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Get the bio from the React request
+    data = request.get_json()
+    new_bio = data.get("bio")
+    
+    try:
+        # Decode token to get user_id (using our bypass from earlier)
+        token = auth_header.split(" ")[1]
+        decoded = jwt.decode(token, options={"verify_signature": False})
+        user_id = decoded.get("user_id")
+
+        # Update the database
+        db = get_db()
+        db.execute("UPDATE users SET bio = ? WHERE id = ?", (new_bio, user_id))
+        db.commit()
+
+        # Return the updated user record
+        user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        return jsonify(dict(user)), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/workouts/complete", methods=["POST"])
+def complete_workout():
+    payload = request.get_json()
+    db = get_db()
+    db.execute("""INSERT INTO completed_workouts (user_id, exercise_name, calories_burned, completed_at) 
+                 VALUES (?, ?, ?, ?)""",
+               (request.user_id, payload["exercise_name"], payload["calories_burned"], datetime.utcnow().isoformat()))
+    db.commit()
+    return jsonify({"message": "Workout saved!"})
+
+@app.route('/profile', methods=['GET'])
+@app.route('/me', methods=['GET'])
+def get_profile():
+    auth_header = request.headers.get('Authorization')
+    token = auth_header.split(" ")[1] if auth_header else None
+    
+    if not token:
+        return jsonify({"error": "Missing token"}), 401
+
+    try:
+        # Using the bypass we discussed
+        decoded = jwt.decode(token, options={"verify_signature": False})
+        user_id = decoded.get('user_id')
+
+        db = get_db()
+        user_row = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+
+        if user_row:
+            user_data = dict(user_row)
+            user_data.pop('password_hash', None)
+            return jsonify(user_data), 200
+        else:
+            return jsonify({"error": "User not found in database"}), 404
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 401
+    
+@app.route("/dashboard", methods=["GET"])
+def dashboard():
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (request.user_id,)).fetchone()
+    
+    # Auto-age for dashboard
+    birth = datetime.fromisoformat(user["birthdate"])
+    age = datetime.utcnow().year - birth.year
+    
+    return jsonify({
+        "display_name": user["nickname"] or user["name"],
+        "age": age,
+        "stats": {
+            "weight": f"{user['weight_lb']} lbs",
+            "height": f"{user['height_in']} inches",
+            "activity": user["fitness_activity"]
+        }
+    })
+#--------------------------------------------------------------------------------
 # Temporary storage for active sessions
 active_sessions = {}
 
@@ -179,6 +451,8 @@ def health_check():
     #Simple route to verify the backend is running.
     return jsonify({'status': 'online', 'version': '3.0.0'})
 
+if __name__ == "__main__":
+    init_db()
 if __name__ == '__main__':
     # Standard port 5000 is used so Vite proxy works correctly.
     app.run(debug=True, port=5000)
