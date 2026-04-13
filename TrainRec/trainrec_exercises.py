@@ -5,7 +5,6 @@ import sqlite3
 from datetime import datetime, timedelta
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-import jwt
 
 app = Flask(__name__)
 
