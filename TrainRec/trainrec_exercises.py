@@ -1,4 +1,8 @@
-from flask import Flask, jsonify, request, g
+from flask import Flask, jsonify, request
+JWT_SECRET = "your-chosen-secret-key-here"
+JWT_ALGORITHM = "HS256"
+
+from flask import Flask, jsonify, request, g  
 from flask_cors import CORS
 import json # Used for saving and loading session metadata and landmarks in JSON format.
 import os # Used for file system operations like creating directories and saving files.
