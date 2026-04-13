@@ -40,3 +40,240 @@
 .read-the-docs {
   color: #888;
 }
+/* --- TRAINREC LOGIN EXCLUSIVE --- */
+.tr-login-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #13132b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  font-family: 'Inter', sans-serif;
+}
+
+.tr-logo-text {
+  color: #9d50bb;
+  font-size: 4rem;
+  font-weight: 900;
+  margin-bottom: 2rem;
+  letter-spacing: -2px;
+}
+
+.tr-orange-card {
+  width: 90%;
+  max-width: 420px;
+  max-height: 85vh; /* Prevents card from going off-screen */
+  overflow-y: auto; /* Adds scrollbar if content is too tall */
+  background-color: #1b1b36;
+  border: 2px solid #ff9f43; 
+  border-radius: 40px;
+  padding: 40px;
+  box-shadow: 0 0 25px rgba(255, 159, 67, 0.2);
+  box-sizing: border-box;
+}
+
+
+.tr-orange-card::-webkit-scrollbar {
+  width: 5px;
+}
+.tr-orange-card::-webkit-scrollbar-thumb {
+  background: #ff9f43;
+  border-radius: 10px;
+}
+
+.tr-welcome {
+  color: white;
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+  display: block;
+  text-align: left;
+}
+
+.tr-input-field {
+  width: 100%;
+  padding: 16px;
+  margin-bottom: 16px;
+  background-color: #0d0e1b;
+  border: 1px solid #333;
+  border-radius: 12px;
+  color: white;
+  font-size: 1rem;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.tr-input-field:focus {
+  border-color: #ff9f43;
+}
+
+.tr-signin-btn {
+  width: 100%;
+  padding: 16px;
+  background-color: #ff9f43;
+  color: #13132b;
+  border: none;
+  border-radius: 12px;
+  font-weight: 900;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.tr-signin-btn:hover { opacity: 0.9; }
+
+.tr-forgot-btn {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  float: right;
+  margin-top: 10px;
+  cursor: pointer;
+}
+
+.tr-create-btn {
+  background: none;
+  border: none;
+  color: #9d50bb;
+  font-weight: bold;
+  margin-top: 40px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.tr-grid {
+  display: grid;
+  grid-template-cols: 1fr 1fr;
+  gap: 12px;
+}
+
+.tr-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+/* --- NEON ACCOUNT PAGE STYLES --- */
+
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  width: 100%;
+  max-width: 1100px;
+}
+
+.neon-account-card {
+  background-color: #1b1b36;
+  border: 2px solid;
+  border-radius: 24px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+/* --- UPDATED NEON FILLED STYLES --- */
+
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  width: 100%;
+  max-width: 1100px;
+}
+
+.neon-account-card {
+  /* This ensures all boxes are the same size as your Nickname box */
+  min-height: 120px; 
+  border: 2px solid;
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  transition: all 0.3s ease;
+  position: relative; /* Essential for positioning the reset button */
+}
+
+/* FILLED NEON VARIANTS */
+.neon-purple {
+  border-color: #9d50bb !important;
+  background-color: rgba(157, 80, 187, 0.15); /* Filled purple */
+  box-shadow: 0 0 15px rgba(157, 80, 187, 0.2);
+}
+
+.neon-blue {
+  border-color: #00d2ff !important;
+  background-color: rgba(0, 210, 255, 0.15); /* Filled blue */
+  box-shadow: 0 0 15px rgba(0, 210, 255, 0.2);
+}
+
+.neon-orange {
+  border-color: #ff9f43 !important;
+  background-color: rgba(255, 159, 67, 0.15); /* Filled orange */
+  box-shadow: 0 0 15px rgba(255, 159, 67, 0.2);
+}
+
+.neon-yellow {
+  border-color: #fac015 !important;
+  background-color: rgba(250, 192, 21, 0.2); /* Filled yellow for editing */
+  box-shadow: 0 0 20px rgba(250, 192, 21, 0.3);
+}
+
+/* Tiny Reset Password positioning */
+.reset-btn-link {
+  position: absolute;
+  bottom: 12px;
+  right: 15px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.reset-btn-link:hover {
+  color: #ff9f43;
+  text-decoration: underline;
+}
+
+.card-label {
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 6px;
+}
+
+.card-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+/* Responsive Grid */
+@media (max-width: 900px) {
+  .account-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .account-grid {
+    grid-template-columns: 1fr;
+  }
+}
