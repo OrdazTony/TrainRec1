@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTheme } from '@mui/material/styles';
 import {
   Grid,
   Card,
@@ -38,7 +39,9 @@ const Workouts = () => {
   const [isResting, setIsResting] = useState(false);
   const [restTime, setRestTime] = useState(60);
 
-  const primaryBlue = '#3b82f6';
+  const theme = useTheme();
+  const primaryBlue = theme.palette.mode === 'dark' ? '#7c4dff' : '#ff7a18';
+  const cardBg = theme.palette.mode === 'light' ? '#fde3cf' : '#2b2e47';
 
   const toggleChecklist = (ex) => {
     const next = checklist.some((c) => c.id === ex.id)
@@ -281,7 +284,7 @@ const Workouts = () => {
             </Button>
           </Box>
         ) : (
-          <Box sx={{ overflow: 'hidden', width: '100%' }}>
+          <Box sx={{ width: '100%', pt: 1 }}>
           <Grid container spacing={3}>
             {filteredExercises.map((ex) => (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={ex.id} sx={{ display: 'flex' }}>
@@ -293,6 +296,7 @@ const Workouts = () => {
                     flexDirection: 'column',
                     borderRadius: 4,
                     transition: '0.2s',
+                    bgcolor: cardBg,
                     '&:hover': {
                       borderColor: primaryBlue,
                       transform: 'translateY(-4px)',
@@ -334,7 +338,7 @@ const Workouts = () => {
                       variant="contained"
                       fullWidth
                       onClick={() => handleStartSession(ex)}
-                      sx={{ bgcolor: primaryBlue, fontWeight: 700, borderRadius: 2, mb: 1 }}
+                      sx={{ bgcolor: '#3b82f6', fontWeight: 700, borderRadius: 2, mb: 1 }}
                     >
                       Start Training
                     </Button>
