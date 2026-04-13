@@ -7,20 +7,30 @@ import Dashboard from './Components/Dashboard'
 import Workouts from './Components/Workouts'
 import Progress from './Components/Progress'
 import Weather from './Components/Weather'
+import LoginPage from './Components/Login'
+import ProfilePage from './Components/Profile'
+import AccountPage from './Components/Account'
+import { useLocation } from 'react-router-dom';
 
 export default function App() {
   const [theme, colorMode] = useMode();
+  const location = useLocation();
+
+  const hideNav = location.pathname === '/login';
 
   return (
     <colorModeContext.Provider value={colorMode}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <ResponsiveAppBar />
+        {!hideNav && <ResponsiveAppBar />}
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path='/workouts' element={<Workouts />} />
             <Route path='/progress' element={<Progress />} />
             <Route path='/weather' element={<Weather />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/account" element={<AccountPage />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
       </ThemeProvider>
