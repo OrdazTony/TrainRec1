@@ -19,11 +19,27 @@ import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import StopCircleIcon from '@mui/icons-material/StopCircle';
 import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
-import { analyzeExercise, drawPose, normalizeLandmarks } from '../utils/poseMath';
+import { analyzeExercise, drawPose, normalizeLandmarks } from "../util/poseMath";
 
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task';
 
+
+const EXERCISE_VIDEOS = {
+  bicep_curls:    '/exercise-videos/bicep_curls.mp4',
+  pushups:        '/exercise-videos/pushups.mp4',
+  diamond_pushups:'/exercise-videos/diamond_pushups.mp4',
+  pike_pushups:   '/exercise-videos/pike_pushups.mp4',
+  tricep_dips:    '/exercise-videos/tricep_dips.mp4',
+  squats:         '/exercise-videos/squats.mp4',
+  jump_squats:    '/exercise-videos/jump_squats.mp4',
+  glute_bridge:   '/exercise-videos/glute_bridge.mp4',
+  plank:          '/exercise-videos/plank.mp4',
+  plank_jacks:    '/exercise-videos/plank_jacks.mp4',
+  russian_twists: '/exercise-videos/russian_twists.mp4',
+  leg_raises:     '/exercise-videos/leg_raises.mp4',
+  shoulder_press: '/exercise-videos/shoulder_press.mp4',
+};
 
 const PoseTrainer = ({ exercise, onQuit }) => {
   const videoRef = useRef(null);
@@ -32,7 +48,7 @@ const PoseTrainer = ({ exercise, onQuit }) => {
   const streamRef = useRef(null);
   const poseLandmarkerRef = useRef(null);
   const sessionIdRef = useRef(null);
-  const frameBatcghRef = useRef([]);
+  const frameBatchRef = useRef([]);
   const lastVideoTimeRef = useRef(-1);
   const startedRef = useRef(false);
 
@@ -49,9 +65,20 @@ const PoseTrainer = ({ exercise, onQuit }) => {
     angle: null,
     feedback: 'Camera not started',
   });
+  const analysisRef = useRef({
+    count: 0,
+    phase: 'down',
+    angle: null,
+    feedback: 'Camera not started',
+    formGood: false,
+  });
+  const formGoodRef = useRef(false);
   const [recording, setRecording] = useState(true);
   const [savedFrames, setSavedFrames] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const timerRef = useRef(null);
 
+  const isTimed = exercise?.type === 'seconds';
   const exerciseKey = useMemo(() => exercise?.id ?? 'generic', [exercise]);
 
   const flushFrames = async (force = false) => {
@@ -64,8 +91,8 @@ const PoseTrainer = ({ exercise, onQuit }) => {
       exerciseName: exercise?.name,
     };
 
-    const framesSent = frameBatcghRef.current.length;
-    frameBatcghRef.current = [];
+    const framesSent = frameBatchRef.current.length;
+    frameBatchRef.current = [];
 
     try {
       await fetch(`/api/pose/session/${sessionIdRef.current}/landmarks`, {
@@ -104,6 +131,7 @@ const stopCamera = async () => {
 
     sessionIdRef.current = null;
     setIsCameraOn(false);
+    setElapsedSeconds(0);
 };
 
 const enumerateVideoDevices = async () => {
@@ -142,11 +170,13 @@ const runDetection = async () => {
             canvas.height = video.videoHeight || 540;
             drawPose(ctx, canvas.width, canvas.height, landmarks);
 
-            const nextAnalysis = analyzeExercise(exerciseKey, landmarks, analysis);
+            const nextAnalysis = analyzeExercise(exerciseKey, landmarks, analysisRef.current);
+            analysisRef.current = nextAnalysis;
+            formGoodRef.current = nextAnalysis.formGood ?? false;
             setAnalysis(nextAnalysis);
 
             if(landmarks.length && recording && sessionIdRef.current) {
-                frameBatcghRef.current.push({
+                frameBatchRef.current.push({
                     ts: new Date().toISOString(),
                     elapsedSec: Number(video.currentTime.toFixed(3)),
                     repCount: nextAnalysis.count,
@@ -266,6 +296,20 @@ if (!sessionIdRef.current) {
     if (isCameraOn) await startCamera('', next);
   };
 
+  // Timer for endurance / timed exercises — only counts while form is correct
+  useEffect(() => {
+    if (isTimed && isCameraOn && recording) {
+      timerRef.current = setInterval(() => {
+        if (formGoodRef.current) {
+          setElapsedSeconds((prev) => prev + 1);
+        }
+      }, 1000);
+    } else {
+      clearInterval(timerRef.current);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [isTimed, isCameraOn, recording]);
+
   useEffect(() => {
     return () => {
       stopCamera();
@@ -282,28 +326,11 @@ if (!sessionIdRef.current) {
       <CardContent sx={{ p: { xs: 2, md: 3 } }}>
         <Stack spacing={2.5}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-            <Box>
+            <Box sx={{ flex: 1, textAlign: 'center' }}>
               <Typography variant="h4" sx={{ fontWeight: 900 }}>
                 {exercise?.name}
               </Typography>
-              <Typography color="text.secondary">
-                Browser camera + real-time pose landmarks + saved training data
-              </Typography>
             </Box>
-
-            <Stack direction="row" spacing={1} flexWrap="wrap">
-              <Chip
-                icon={<FiberManualRecordIcon />}
-                color={recording ? 'error' : 'default'}
-                label={recording ? 'Recording' : 'Paused'}
-              />
-              <Chip label={`Reps: ${analysis.count}`} color="primary" />
-              <Chip label={`Phase: ${analysis.phase}`} variant="outlined" />
-              <Chip
-                label={analysis.angle != null ? `Angle: ${analysis.angle}°` : 'Angle: --'}
-                variant="outlined"
-              />
-            </Stack>
           </Box>
 
           {error && <Alert severity="error">{error}</Alert>}
@@ -313,6 +340,64 @@ if (!sessionIdRef.current) {
               Tap <strong>Start camera</strong> first. On iPhone, camera labels usually appear only
               after permission is granted.
             </Alert>
+          )}
+
+          {EXERCISE_VIDEOS[exercise?.id] && (
+            <Box>
+              <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
+                <Chip
+                  icon={<FiberManualRecordIcon />}
+                  color={isCameraOn && recording ? 'error' : 'default'}
+                  label={isCameraOn ? (recording ? 'Recording' : 'Paused') : 'Camera off'}
+                />
+                {isTimed
+                  ? <Chip label={`Time: ${elapsedSeconds}s`} color="primary" />
+                  : <Chip label={`Reps: ${analysis.count}`} color="primary" />}
+                <Chip label={`Phase: ${analysis.phase}`} variant="outlined" />
+                <Chip
+                  label={analysis.angle != null ? `Angle: ${analysis.angle}°` : 'Angle: --'}
+                  variant="outlined"
+                />
+              </Stack>
+              <Typography variant="overline" sx={{ fontWeight: 800, mb: 0.5, display: 'block' }}>
+                Example — follow along
+              </Typography>
+              <Box
+                sx={{
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  bgcolor: '#000',
+                  lineHeight: 0,
+                }}
+              >
+                <video
+                  key={exercise.id}
+                  src={EXERCISE_VIDEOS[exercise.id]}
+                  controls
+                  loop
+                  playsInline
+                  style={{ width: '100%', maxHeight: 320, objectFit: 'contain', display: 'block' }}
+                />
+              </Box>
+            </Box>
+          )}
+
+          {!EXERCISE_VIDEOS[exercise?.id] && (
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Chip
+                icon={<FiberManualRecordIcon />}
+                color={isCameraOn && recording ? 'error' : 'default'}
+                label={isCameraOn ? (recording ? 'Recording' : 'Paused') : 'Camera off'}
+              />
+              {isTimed
+                ? <Chip label={`Time: ${elapsedSeconds}s`} color="primary" />
+                : <Chip label={`Reps: ${analysis.count}`} color="primary" />}
+              <Chip label={`Phase: ${analysis.phase}`} variant="outlined" />
+              <Chip
+                label={analysis.angle != null ? `Angle: ${analysis.angle}°` : 'Angle: --'}
+                variant="outlined"
+              />
+            </Stack>
           )}
 
           <Box

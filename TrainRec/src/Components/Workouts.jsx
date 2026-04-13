@@ -59,6 +59,8 @@ const Workouts = () => {
     return () => clearInterval(interval);
   }, [isResting, restTime]);
 
+  const DIFFICULTY_ORDER = { Beginner: 0, Intermediate: 1, Advanced: 2 };
+
   useEffect(() => {
     let result = exercises;
 
@@ -71,6 +73,11 @@ const Workouts = () => {
         ex.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
+
+    result = [...result].sort(
+      (a, b) =>
+        (DIFFICULTY_ORDER[a.difficulty] ?? 0) - (DIFFICULTY_ORDER[b.difficulty] ?? 0)
+    );
 
     setFilteredExercises(result);
   }, [category, searchTerm, exercises]);
