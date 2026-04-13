@@ -1,8 +1,4 @@
-from flask import Flask, jsonify, request
-JWT_SECRET = "your-chosen-secret-key-here"
-JWT_ALGORITHM = "HS256"
-
-from flask import Flask, jsonify, request, g  
+from flask import Flask, jsonify, request, g
 from flask_cors import CORS
 import json # Used for saving and loading session metadata and landmarks in JSON format.
 import os # Used for file system operations like creating directories and saving files.
@@ -141,7 +137,7 @@ def register():
         token = jwt.encode({
             'user_id': user['id'],
             'exp': datetime.now(timezone.utc) + timedelta(hours=24)
-        }, "JWT_SECRET", algorithm="HS256")
+        }, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
         return jsonify({"message": "Account Created", "token": token}), 201
 
@@ -213,6 +209,25 @@ def update_profile():
             db.execute(f"UPDATE users SET {key} = ? WHERE id = ?", (payload[key], request.user_id))
     db.commit()
     return jsonify({"message": "Profile updated"})
+
+def calculate_daily_calories(sex, weight_lb, height_in, birthdate, activity_level, weekly_change_lb):
+    """Mifflin-St Jeor BMR + activity multiplier + weekly deficit/surplus."""
+    weight_kg = weight_lb * 0.453592
+    height_cm = height_in * 2.54
+    try:
+        birth = datetime.fromisoformat(birthdate)
+        age = (datetime.now(timezone.utc).replace(tzinfo=None) - birth.replace(tzinfo=None)).days // 365
+    except Exception:
+        age = 30
+    if sex and sex.lower() == 'female':
+        bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age - 161
+    else:
+        bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age + 5
+    multipliers = {'sedentary': 1.2, 'light': 1.375, 'moderate': 1.55, 'active': 1.725, 'very_active': 1.9}
+    tdee = bmr * multipliers.get(activity_level, 1.55)
+    daily_adjustment = (weekly_change_lb * 3500) / 7
+    return round(tdee + daily_adjustment)
+
 
 @app.route("/goals", methods=["POST"])
 def set_goals():
@@ -455,8 +470,7 @@ def health_check():
     #Simple route to verify the backend is running.
     return jsonify({'status': 'online', 'version': '3.0.0'})
 
-if __name__ == "__main__":
-    init_db()
 if __name__ == '__main__':
+    init_db()
     # Standard port 5000 is used so Vite proxy works correctly.
     app.run(debug=True, port=5000)

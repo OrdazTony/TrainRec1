@@ -8,6 +8,7 @@ import{
     Chip,
     CircularProgress,
     FormControl,
+    Grid,
     InputLabel,
     MenuItem,
     Select,
@@ -23,6 +24,76 @@ import { analyzeExercise, drawPose, normalizeLandmarks } from "../util/poseMath"
 
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task';
+
+// kcal burned per kg of bodyweight per hour — sourced from Kaggle exercise_dataset.csv
+const CALORIE_RATES = {
+  pushups:          1.647825, // Calisthenics, vigorous
+  diamond_pushups:  1.647825,
+  pike_pushups:     1.647825,
+  tricep_dips:      1.234853, // Weight lifting, vigorous
+  bicep_curls:      1.234853,
+  supermans:        0.721008, // Calisthenics, light
+  inchworms:        0.721008,
+  squats:           1.647825, // Calisthenics, vigorous
+  jump_squats:      1.441339, // Aerobics, high impact
+  lunges:           1.647825,
+  side_lunges:      1.647825,
+  glute_bridge:     0.721008,
+  calf_raises:      0.721008,
+  plank:            0.721008, // Calisthenics, light (timed)
+  mountain_climbers:1.441339, // Aerobics, high impact (timed)
+  high_knees:       1.647825, // Running, 5 mph (timed)
+  russian_twists:   1.647825,
+  leg_raises:       1.647825,
+  bicycle_crunches: 1.647825,
+  plank_jacks:      1.441339, // Aerobics, high impact (timed)
+  burpees:          1.647825, // Circuit training
+  jumping_jacks:    1.029722, // Aerobics, low impact
+  shoulder_press:   1.234853, // Weight lifting, vigorous
+};
+
+// Average seconds per rep for rep-based exercises
+const REP_DURATION_SEC = {
+  pushups:          3,
+  diamond_pushups:  3,
+  pike_pushups:     3,
+  tricep_dips:      3,
+  bicep_curls:      2,
+  supermans:        3,
+  inchworms:        4,
+  squats:           3,
+  jump_squats:      2,
+  lunges:           2,
+  side_lunges:      2,
+  glute_bridge:     3,
+  calf_raises:      2,
+  russian_twists:   1.5,
+  leg_raises:       3,
+  bicycle_crunches: 1.5,
+  burpees:          4,
+  jumping_jacks:    1,
+  shoulder_press:   3,
+};
+
+const DEFAULT_WEIGHT_KG = 70;
+
+/** Save a completed session's calories to localStorage (daily accumulator) */
+function saveSessionCalories(exerciseId, exerciseName, calories, repsOrSeconds, isTimedEx) {
+  const today = new Date().toISOString().slice(0, 10);
+  let log = JSON.parse(localStorage.getItem('trainrec_daily_log') || 'null');
+  if (!log || log.date !== today) {
+    log = { date: today, totalCalories: 0, sessions: [] };
+  }
+  log.totalCalories = +(log.totalCalories + calories).toFixed(1);
+  log.sessions.push({
+    exercise: exerciseId,
+    name: exerciseName,
+    calories: +calories.toFixed(1),
+    [isTimedEx ? 'seconds' : 'reps']: repsOrSeconds,
+    timestamp: new Date().toISOString(),
+  });
+  localStorage.setItem('trainrec_daily_log', JSON.stringify(log));
+}
 
 
 const EXERCISE_VIDEOS = {
@@ -80,6 +151,18 @@ const PoseTrainer = ({ exercise, onQuit }) => {
 
   const isTimed = exercise?.type === 'seconds';
   const exerciseKey = useMemo(() => exercise?.id ?? 'generic', [exercise]);
+
+  const calorieRate = CALORIE_RATES[exercise?.id] ?? 1.234853;
+  const repDuration = REP_DURATION_SEC[exercise?.id] ?? 3;
+
+  // Live calorie estimate — recalculates whenever reps or timed seconds change
+  const totalCalories = useMemo(() => {
+    const kcalPerSec = (calorieRate * DEFAULT_WEIGHT_KG) / 3600;
+    if (isTimed) {
+      return +(kcalPerSec * elapsedSeconds).toFixed(1);
+    }
+    return +(kcalPerSec * repDuration * analysis.count).toFixed(1);
+  }, [isTimed, elapsedSeconds, analysis.count, calorieRate, repDuration]);
 
   const flushFrames = async (force = false) => {
     if (!sessionIdRef.current || !recording) return;
@@ -342,79 +425,55 @@ if (!sessionIdRef.current) {
             </Alert>
           )}
 
-          {EXERCISE_VIDEOS[exercise?.id] && (
-            <Box>
-              <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
-                <Chip
-                  icon={<FiberManualRecordIcon />}
-                  color={isCameraOn && recording ? 'error' : 'default'}
-                  label={isCameraOn ? (recording ? 'Recording' : 'Paused') : 'Camera off'}
-                />
-                {isTimed
-                  ? <Chip label={`Time: ${elapsedSeconds}s`} color="primary" />
-                  : <Chip label={`Reps: ${analysis.count}`} color="primary" />}
-                <Chip label={`Phase: ${analysis.phase}`} variant="outlined" />
-                <Chip
-                  label={analysis.angle != null ? `Angle: ${analysis.angle}°` : 'Angle: --'}
-                  variant="outlined"
-                />
-              </Stack>
+          {/* Status chips */}
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Chip
+              icon={<FiberManualRecordIcon />}
+              color={isCameraOn && recording ? 'error' : 'default'}
+              label={isCameraOn ? (recording ? 'Recording' : 'Paused') : 'Camera off'}
+            />
+            {isTimed
+              ? <Chip label={`Time: ${elapsedSeconds}s`} color="primary" />
+              : <Chip label={`Reps: ${analysis.count}`} color="primary" />}
+            <Chip label={`Phase: ${analysis.phase}`} variant="outlined" />
+            <Chip
+              label={analysis.angle != null ? `Angle: ${analysis.angle}°` : 'Angle: --'}
+              variant="outlined"
+            />
+          </Stack>
+
+          {/* Demo video + Camera feed side by side */}
+          <Grid container spacing={2}>
+            {EXERCISE_VIDEOS[exercise?.id] && (
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Typography variant="overline" sx={{ fontWeight: 800, mb: 0.5, display: 'block' }}>
+                  Example — follow along
+                </Typography>
+                <Box sx={{ borderRadius: 4, overflow: 'hidden', bgcolor: '#000', lineHeight: 0 }}>
+                  <video
+                    key={exercise.id}
+                    src={EXERCISE_VIDEOS[exercise.id]}
+                    controls
+                    loop
+                    playsInline
+                    style={{ width: '100%', height: 300, objectFit: 'cover', display: 'block' }}
+                  />
+                </Box>
+              </Grid>
+            )}
+
+            <Grid size={{ xs: 12, md: EXERCISE_VIDEOS[exercise?.id] ? 6 : 12 }}>
               <Typography variant="overline" sx={{ fontWeight: 800, mb: 0.5, display: 'block' }}>
-                Example — follow along
+                Camera feed
               </Typography>
-              <Box
-                sx={{
-                  borderRadius: 4,
-                  overflow: 'hidden',
-                  bgcolor: '#000',
-                  lineHeight: 0,
-                }}
-              >
-                <video
-                  key={exercise.id}
-                  src={EXERCISE_VIDEOS[exercise.id]}
-                  controls
-                  loop
-                  playsInline
-                  style={{ width: '100%', maxHeight: 320, objectFit: 'contain', display: 'block' }}
-                />
-              </Box>
-            </Box>
-          )}
-
-          {!EXERCISE_VIDEOS[exercise?.id] && (
-            <Stack direction="row" spacing={1} flexWrap="wrap">
-              <Chip
-                icon={<FiberManualRecordIcon />}
-                color={isCameraOn && recording ? 'error' : 'default'}
-                label={isCameraOn ? (recording ? 'Recording' : 'Paused') : 'Camera off'}
-              />
-              {isTimed
-                ? <Chip label={`Time: ${elapsedSeconds}s`} color="primary" />
-                : <Chip label={`Reps: ${analysis.count}`} color="primary" />}
-              <Chip label={`Phase: ${analysis.phase}`} variant="outlined" />
-              <Chip
-                label={analysis.angle != null ? `Angle: ${analysis.angle}°` : 'Angle: --'}
-                variant="outlined"
-              />
-            </Stack>
-          )}
-
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', lg: '1.4fr 0.8fr' },
-              gap: 2.5,
-            }}
-          >
-            <Box>
               <Box
                 sx={{
                   position: 'relative',
                   borderRadius: 4,
                   overflow: 'hidden',
                   bgcolor: '#000',
-                  minHeight: 320,
+                  height: 300,
+                  lineHeight: 0,
                 }}
               >
                 {!isCameraOn && (
@@ -434,7 +493,7 @@ if (!sessionIdRef.current) {
                     {isInitializing ? (
                       <CircularProgress color="inherit" />
                     ) : (
-                      <VideocamIcon sx={{ fontSize: 64 }} />
+                      <VideocamIcon sx={{ fontSize: 48 }} />
                     )}
                     <Typography variant="h6" sx={{ fontWeight: 800 }}>
                       {isInitializing ? 'Starting camera...' : 'Camera preview will appear here'}
@@ -463,88 +522,113 @@ if (!sessionIdRef.current) {
                   }}
                 />
               </Box>
-            </Box>
+            </Grid>
+          </Grid>
 
-            <Stack spacing={2}>
-              <Box sx={{ p: 2, borderRadius: 4, bgcolor: 'action.hover' }}>
-                <Typography variant="overline" sx={{ fontWeight: 800 }}>
-                  Live feedback
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-                  {analysis.feedback}
-                </Typography>
-                <Typography color="text.secondary">
-                  Saved frames: {savedFrames}. Landmark batches are posted to Flask so you can use
-                  them later for training and validation.
-                </Typography>
-              </Box>
-
-              <FormControl fullWidth>
-                <InputLabel id="camera-device-label">Camera device</InputLabel>
-                <Select
-                  labelId="camera-device-label"
-                  label="Camera device"
-                  value={selectedDeviceId}
-                  onChange={async (event) => {
-                    const value = event.target.value;
-                    setSelectedDeviceId(value);
-                    if (isCameraOn) await startCamera(value, preferredFacingMode);
-                  }}
-                >
-                  {devices.map((device, index) => (
-                    <MenuItem key={device.deviceId || index} value={device.deviceId}>
-                      {device.label || `Camera ${index + 1}`}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                <Button variant="contained" disabled={isInitializing} onClick={() => startCamera()}>
-                  Start camera
-                </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<CameraswitchIcon />}
-                  onClick={handleSwitchFacingMode}
-                >
-                  Switch {preferredFacingMode === 'user' ? 'to rear' : 'to front'}
-                </Button>
-              </Stack>
-
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                <Button
-                  variant={recording ? 'outlined' : 'contained'}
-                  color={recording ? 'warning' : 'success'}
-                  onClick={() => setRecording((prev) => !prev)}
-                >
-                  {recording ? 'Pause recording' : 'Resume recording'}
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={<StopCircleIcon />}
-                  onClick={async () => {
-                    await stopCamera();
-                    onQuit?.();
-                  }}
-                >
-                  End session
-                </Button>
-              </Stack>
-
-              <Box sx={{ p: 2, borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="overline" sx={{ fontWeight: 800 }}>
-                  How this works
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  The browser handles the camera for desktop and mobile. MediaPipe extracts pose
-                  landmarks in real time. The Flask API stores frame batches as JSON for later model
-                  training.
-                </Typography>
-              </Box>
-            </Stack>
+          {/* Live feedback — compact bar */}
+          <Box
+            sx={{
+              py: 1,
+              px: 2,
+              borderRadius: 3,
+              bgcolor: 'action.hover',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', color: 'text.secondary' }}>
+              Feedback:
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700, flex: 1 }}>
+              {analysis.feedback}
+            </Typography>
+            <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', color: 'text.secondary' }}>
+              Calories:
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 900, color: '#ff7a18' }}>
+              {totalCalories} kcal
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Frames: {savedFrames}
+            </Typography>
           </Box>
+
+          {/* Controls */}
+          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="nowrap">
+            <FormControl sx={{ minWidth: 200 }}>
+              <InputLabel id="camera-device-label">Camera device</InputLabel>
+              <Select
+                labelId="camera-device-label"
+                label="Camera device"
+                value={selectedDeviceId}
+                onChange={async (event) => {
+                  const value = event.target.value;
+                  setSelectedDeviceId(value);
+                  if (isCameraOn) await startCamera(value, preferredFacingMode);
+                }}
+              >
+                {devices.map((device, index) => (
+                  <MenuItem key={device.deviceId || index} value={device.deviceId}>
+                    {device.label || `Camera ${index + 1}`}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Button
+              variant="contained"
+              disabled={isInitializing}
+              color={isCameraOn ? 'warning' : 'success'}
+              startIcon={isCameraOn ? <StopCircleIcon /> : <VideocamIcon />}
+              onClick={() => {
+                if (isCameraOn) {
+                  stopCamera();
+                } else {
+                  startCamera();
+                }
+              }}
+            >
+              {isCameraOn ? 'Pause Camera' : 'Start Camera'}
+            </Button>
+
+            <Button
+              variant="outlined"
+              startIcon={<CameraswitchIcon />}
+              onClick={handleSwitchFacingMode}
+            >
+              Switch {preferredFacingMode === 'user' ? 'to rear' : 'to front'}
+            </Button>
+
+            <Button
+              variant="contained"
+              color="error"
+              startIcon={<StopCircleIcon />}
+              sx={{ color: '#fff' }}
+              onClick={async () => {
+                await stopCamera();
+                // Completed = 8+ reps for rep exercises, 60+ seconds for timed
+                const completed = isTimed
+                  ? elapsedSeconds >= 60
+                  : analysis.count >= 8;
+                saveSessionCalories(
+                  exercise?.id,
+                  exercise?.name,
+                  totalCalories,
+                  isTimed ? elapsedSeconds : analysis.count,
+                  isTimed
+                );
+                onQuit?.(totalCalories, completed);
+              }}
+            >
+              End Workout
+            </Button>
+
+            <Typography variant="body2" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+              1 set of {exercise?.target ?? 8} {exercise?.type === 'seconds' ? 'seconds' : 'reps'}
+            </Typography>
+          </Stack>
         </Stack>
       </CardContent>
     </Card>

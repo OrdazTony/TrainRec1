@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Avatar,
   Box,
@@ -26,7 +26,14 @@ import PsychologyRoundedIcon from "@mui/icons-material/PsychologyRounded";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 
-const workoutOptions = ["Warm-up", "Upper Body", "Core Session", "Cooldown Stretch"];
+const CHECKLIST_KEY = 'trainrec_checklist';
+
+function loadChecklist() {
+  try { return JSON.parse(localStorage.getItem(CHECKLIST_KEY) || '[]'); }
+  catch { return []; }
+}
+
+// legacy static options kept for fallback
 const workoutDurations = ["8 min", "20 min", "15 min", "10 min"];
 const moodOptions = [
   { label: "Calm", value: "Calm", Icon: SelfImprovementRoundedIcon },
@@ -84,10 +91,35 @@ const MetricCard = ({ title, value, subtitle, caption, Icon, gradient }) => (
 const Dashboard = () => {
   const theme = useTheme();
   const dailyGoal = 500;
-  const [caloriesBurned, setCaloriesBurned] = useState(280);
-  const [completedWorkouts, setCompletedWorkouts] = useState(["Warm-up"]);
-  const [selectedMood, setSelectedMood] = useState("Energized");
+  const [caloriesBurned, setCaloriesBurned] = useState(() => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const log = JSON.parse(localStorage.getItem('trainrec_daily_log') || 'null');
+      return (log && log.date === today) ? log.totalCalories : 0;
+    } catch { return 0; }
+  });
+  const [workoutOptions, setWorkoutOptions] = useState(() => loadChecklist());
+  const [completedWorkouts, setCompletedWorkouts] = useState(
+    () => loadChecklist().filter((w) => w.done).map((w) => w.name)
+  );
+  const [selectedMood, setSelectedMood] = useState(null);
   const [timeframe, setTimeframe] = useState("Weekly");
+
+  // Re-read localStorage whenever the tab gains focus (user returns from Workouts page)
+  useEffect(() => {
+    const onFocus = () => {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const log = JSON.parse(localStorage.getItem('trainrec_daily_log') || 'null');
+        if (log && log.date === today) setCaloriesBurned(log.totalCalories);
+        const cl = loadChecklist();
+        setWorkoutOptions(cl);
+        setCompletedWorkouts(cl.filter((w) => w.done).map((w) => w.name));
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   const moodScores = {
     Calm: 66,
@@ -104,8 +136,8 @@ const Dashboard = () => {
     Energized: { gradient: "linear-gradient(135deg, #7c4dff 0%, #a855f7 100%)", color: "#8b5cf6" },
   };
 
-  const calorieProgress = Math.min((caloriesBurned / dailyGoal) * 100, 100);
-  const workoutProgress = (completedWorkouts.length / workoutOptions.length) * 100;
+  const calorieProgress = dailyGoal > 0 ? Math.min((caloriesBurned / dailyGoal) * 100, 100) : 0;
+  const workoutProgress = workoutOptions.length > 0 ? (completedWorkouts.length / workoutOptions.length) * 100 : 0;
   const energyScore = moodScores[selectedMood] ?? 70;
   const activeMoodStyle = moodStyles[selectedMood] ?? moodStyles.Energized;
 
@@ -138,10 +170,24 @@ const Dashboard = () => {
 
   const softText = { color: "text.secondary" };
 
-  const toggleWorkout = (workout) => {
-    setCompletedWorkouts((prev) =>
-      prev.includes(workout) ? prev.filter((item) => item !== workout) : [...prev, workout]
-    );
+  const toggleWorkout = (workoutName) => {
+    setCompletedWorkouts((prev) => {
+      const next = prev.includes(workoutName)
+        ? prev.filter((n) => n !== workoutName)
+        : [...prev, workoutName];
+      const cl = loadChecklist().map((w) =>
+        w.name === workoutName ? { ...w, done: next.includes(workoutName) } : w
+      );
+      localStorage.setItem(CHECKLIST_KEY, JSON.stringify(cl));
+      return next;
+    });
+  };
+
+  const removeFromChecklist = (workout) => {
+    const next = workoutOptions.filter((w) => w.name !== workout.name);
+    localStorage.setItem(CHECKLIST_KEY, JSON.stringify(next));
+    setWorkoutOptions(next);
+    setCompletedWorkouts((prev) => prev.filter((n) => n !== workout.name));
   };
 
   return (
@@ -382,7 +428,7 @@ const Dashboard = () => {
         </Grid>
 
         <Grid size={{ xs: 12, lg: 4 }}>
-          <Stack spacing={3}>
+          <Stack spacing={3} sx={{ position: { lg: 'sticky' }, top: { lg: 80 } }}>
             {/* Sidebar mood selector box */}
             <Card
               sx={{
@@ -459,17 +505,22 @@ const Dashboard = () => {
                   </Typography>
                 </Box>
                 <Chip
-                  label={`${completedWorkouts.length} done`}
+                  label={`${completedWorkouts.length} / ${workoutOptions.length} done`}
                   sx={{ bgcolor: alpha(theme.palette.primary.main, 0.12), color: "primary.main", fontWeight: 700 }}
                 />
               </Stack>
 
-              <Stack spacing={1.2}>
-                {workoutOptions.map((workout, index) => {
-                  const isComplete = completedWorkouts.includes(workout);
+              {workoutOptions.length === 0 ? (
+                <Typography variant="body2" sx={{ ...softText, textAlign: 'center', py: 3 }}>
+                  No workouts added yet. Go to Workouts and add some!
+                </Typography>
+              ) : (
+              <Stack spacing={1.2} sx={{ maxHeight: 320, overflowY: 'auto', pr: 0.5 }}>
+                {workoutOptions.map((workout) => {
+                  const isComplete = completedWorkouts.includes(workout.name);
                   return (
                     <Box
-                      key={`sidebar-${workout}`}
+                      key={`sidebar-${workout.id}`}
                       sx={{
                         display: "flex",
                         alignItems: "center",
@@ -485,29 +536,39 @@ const Dashboard = () => {
                       <Stack direction="row" spacing={1} alignItems="center">
                         <Checkbox
                           checked={isComplete}
-                          onChange={() => toggleWorkout(workout)}
+                          onChange={() => toggleWorkout(workout.name)}
                           sx={{
                             color: "secondary.main",
                             "&.Mui-checked": { color: "secondary.main" },
                           }}
                         />
                         <Box>
-                          <Typography sx={{ fontWeight: 700 }}>{workout}</Typography>
+                          <Typography sx={{ fontWeight: 700 }}>{workout.name}</Typography>
                           <Typography variant="caption" sx={softText}>
-                            {workoutDurations[index]}
+                            {workout.category}
                           </Typography>
                         </Box>
                       </Stack>
-                      <Chip
-                        label={isComplete ? "Done" : "Pending"}
-                        color={isComplete ? "success" : "default"}
-                        variant={isComplete ? "filled" : "outlined"}
-                        size="small"
-                      />
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Chip
+                          label={isComplete ? "Done" : "Pending"}
+                          color={isComplete ? "success" : "default"}
+                          variant={isComplete ? "filled" : "outlined"}
+                          size="small"
+                        />
+                        <Chip
+                          label="✕"
+                          size="small"
+                          variant="outlined"
+                          onClick={() => removeFromChecklist(workout)}
+                          sx={{ cursor: 'pointer', minWidth: 0, px: 0.5 }}
+                        />
+                      </Stack>
                     </Box>
                   );
                 })}
               </Stack>
+              )}
             </Card>
 
           </Stack>

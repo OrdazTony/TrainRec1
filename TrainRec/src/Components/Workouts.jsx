@@ -19,18 +19,34 @@ import SearchIcon from '@mui/icons-material/Search';
 import TimerIcon from '@mui/icons-material/Timer';
 import PoseTrainer from './PoseTrainer';
 
+const CHECKLIST_KEY = 'trainrec_checklist';
+
+function loadChecklist() {
+  try { return JSON.parse(localStorage.getItem(CHECKLIST_KEY) || '[]'); }
+  catch { return []; }
+}
+
 const Workouts = () => {
   const [exercises, setExercises] = useState([]);
   const [filteredExercises, setFilteredExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [checklist, setChecklist] = useState(() => loadChecklist());
 
   const [activeSession, setActiveSession] = useState(null);
   const [isResting, setIsResting] = useState(false);
   const [restTime, setRestTime] = useState(60);
 
   const primaryBlue = '#3b82f6';
+
+  const toggleChecklist = (ex) => {
+    const next = checklist.some((c) => c.id === ex.id)
+      ? checklist.filter((c) => c.id !== ex.id)
+      : [...checklist, { id: ex.id, name: ex.name, category: ex.category }];
+    localStorage.setItem(CHECKLIST_KEY, JSON.stringify(next));
+    setChecklist(next);
+  };
 
   useEffect(() => {
     fetch('/api/exercises')
@@ -104,7 +120,7 @@ const Workouts = () => {
 
   if (activeSession) {
     return (
-      <Container maxWidth="md" sx={{ py: 8 }}>
+      <Container maxWidth="xl" sx={{ pt: 1, pb: 3 }}>
         <Card
           sx={{
             bgcolor: 'background.paper',
@@ -143,27 +159,28 @@ const Workouts = () => {
             </Box>
           ) : (
             <Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="h6" sx={{ color: primaryBlue, fontWeight: 900 }}>
-                  SESSION ACTIVE
+                  WORKOUT SESSION
                 </Typography>
                 <Button onClick={() => setActiveSession(null)} color="error" variant="outlined">
                   Quit
                 </Button>
               </Box>
 
-              <PoseTrainer exercise={activeSession} onQuit={() => setActiveSession(null)} />
-
-              <Box sx={{ bgcolor: 'action.hover', p: 3, borderRadius: 4, mt: 3, textAlign: 'left' }}>
-                <Typography variant="overline" sx={{ fontWeight: 800, color: primaryBlue }}>
-                  Instructions
-                </Typography>
-                {activeSession.steps?.map((step, i) => (
-                  <Typography key={i} variant="body1" sx={{ mt: 1 }}>
-                    <span style={{ color: primaryBlue, fontWeight: 900 }}>{i + 1}.</span> {step}
-                  </Typography>
-                ))}
-              </Box>
+              <PoseTrainer
+                exercise={activeSession}
+                onQuit={(_, completed) => {
+                  if (completed && activeSession) {
+                    const updated = loadChecklist().map((item) =>
+                      item.id === activeSession.id ? { ...item, done: true } : item
+                    );
+                    localStorage.setItem(CHECKLIST_KEY, JSON.stringify(updated));
+                    setChecklist(updated);
+                  }
+                  setActiveSession(null);
+                }}
+              />
 
               <Button
                 onClick={() => setIsResting(true)}
@@ -264,13 +281,16 @@ const Workouts = () => {
             </Button>
           </Box>
         ) : (
-          <Grid container spacing={4}>
+          <Box sx={{ overflow: 'hidden', width: '100%' }}>
+          <Grid container spacing={3}>
             {filteredExercises.map((ex) => (
-              <Grid item xs={12} sm={6} md={4} key={ex.id}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={ex.id} sx={{ display: 'flex' }}>
                 <Card
                   variant="outlined"
                   sx={{
-                    height: '100%',
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
                     borderRadius: 4,
                     transition: '0.2s',
                     '&:hover': {
@@ -279,9 +299,9 @@ const Workouts = () => {
                     },
                   }}
                 >
-                  <CardContent sx={{ p: 4, flexGrow: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                      <Icon sx={{ color: primaryBlue, fontSize: 36 }}>{ex.icon}</Icon>
+                  <CardContent sx={{ p: 2.5, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+                      <Icon sx={{ color: primaryBlue, fontSize: 28 }}>{ex.icon}</Icon>
                       <Chip
                         label={ex.difficulty}
                         size="small"
@@ -306,7 +326,7 @@ const Workouts = () => {
                       {ex.category}
                     </Typography>
 
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, flexGrow: 1 }}>
                       {ex.description}
                     </Typography>
 
@@ -314,15 +334,30 @@ const Workouts = () => {
                       variant="contained"
                       fullWidth
                       onClick={() => handleStartSession(ex)}
-                      sx={{ bgcolor: primaryBlue, fontWeight: 700, borderRadius: 2 }}
+                      sx={{ bgcolor: primaryBlue, fontWeight: 700, borderRadius: 2, mb: 1 }}
                     >
                       Start Training
+                    </Button>
+                    <Button
+                      variant={checklist.some((c) => c.id === ex.id) ? 'contained' : 'outlined'}
+                      fullWidth
+                      onClick={() => toggleChecklist(ex)}
+                      sx={{
+                        fontWeight: 700,
+                        borderRadius: 2,
+                        borderColor: primaryBlue,
+                        color: checklist.some((c) => c.id === ex.id) ? '#fff' : primaryBlue,
+                        bgcolor: checklist.some((c) => c.id === ex.id) ? primaryBlue : 'transparent',
+                      }}
+                    >
+                      {checklist.some((c) => c.id === ex.id) ? '✓ In Checklist' : '+ Add to Checklist'}
                     </Button>
                   </CardContent>
                 </Card>
               </Grid>
             ))}
           </Grid>
+          </Box>
         )}
       </Box>
     </Container>
