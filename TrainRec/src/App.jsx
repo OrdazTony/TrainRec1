@@ -11,6 +11,7 @@ import LoginPage from './Components/Login'
 import ProfilePage from './Components/Profile'
 import AccountPage from './Components/Account'
 import { useLocation } from 'react-router-dom';
+import GymLocator from './Components/GymLocator'
 
 export default function App() {
   const [theme, colorMode] = useMode();
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/account" element={<AccountPage />} />
+            <Route path='/gymlocator' element={<GymLocator/>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
       </ThemeProvider>
