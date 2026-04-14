@@ -277,3 +277,200 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* --- UPDATED PROFILE: MUTED FITNESS GOALS STYLES --- */
+
+/* --- PROFILE PAGE: FULL STYLES --- */
+
+.profile-layout-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 40px;
+  width: 100%;
+}
+
+/* Sidebar: Nickname directly under Icon */
+.profile-sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.nickname-display {
+  margin-top: 15px;
+  color: #ffffff;
+  font-size: 1.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Avatar/Icon size */
+.avatar-img {
+  width: 130px;
+  height: 130px;
+  object-fit: contain;
+}
+
+/* NEON PURPLE CARD (For sidebar items if needed) */
+.neon-account-card.neon-purple {
+  border: 2px solid #9d50bb;
+  border-radius: 20px;
+  padding: 20px;
+  background-color: rgba(157, 80, 187, 0.18);
+  box-shadow: 0 0 15px rgba(157, 80, 187, 0.2);
+  width: 100%;
+}
+
+/* --- NEON SAGE GLASS GOALS BOX --- */
+.neon-goals-box {
+  background-color: rgba(123, 167, 137, 0.15); /* Transparent Sage Fill */
+  border: 2px solid rgba(123, 167, 137, 0.4);
+  border-radius: 35px;
+  padding: 40px;
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+  min-height: 400px;
+  box-shadow: 0 0 25px rgba(123, 167, 137, 0.2);
+  backdrop-filter: blur(8px); /* Frosted Glass Effect */
+}
+
+.goals-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  position: relative;
+  z-index: 2;
+}
+
+.goals-title {
+  color: #7ba789;
+  font-size: 2rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  margin: 0;
+  letter-spacing: -1px;
+  text-shadow: 0 0 10px rgba(123, 167, 137, 0.3);
+}
+
+/* Slimmed Input Container */
+.goal-input-container {
+  display: flex;
+  align-items: flex-end; /* Aligns button to bottom of text area */
+  gap: 12px;
+  margin-bottom: 30px;
+  position: relative;
+  z-index: 2;
+}
+
+.goals-textarea {
+  flex-grow: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(123, 167, 137, 0.3);
+  border-radius: 15px;
+  padding: 15px;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 500;
+  outline: none;
+  resize: none;
+  height: 60px; /* Thinner height */
+  transition: border 0.3s;
+}
+
+.goals-textarea:focus {
+  border-color: #7ba789;
+}
+
+/* Thinner Add Goal Button */
+.goals-add-btn {
+  background-color: transparent;
+  border: 1.5px solid #7ba789;
+  color: #7ba789;
+  padding: 0 18px;
+  height: 38px; /* Thinner button */
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+}
+
+.goals-add-btn:hover {
+  background-color: #7ba789;
+  color: #1a1625;
+  box-shadow: 0 0 15px rgba(123, 167, 137, 0.4);
+}
+
+/* List View Layout */
+.goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  position: relative;
+  z-index: 2;
+}
+
+.goal-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(123, 167, 137, 0.15);
+}
+
+.goal-list-item:last-child {
+  border-bottom: none;
+}
+
+/* Trash Icon on the Left */
+.trash-btn {
+  background: none;
+  border: none;
+  color: #7ba789;
+  opacity: 0.5;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding-top: 4px;
+  transition: all 0.2s ease;
+}
+
+.trash-btn:hover {
+  opacity: 1;
+  color: #ff4d4d;
+  transform: scale(1.1);
+}
+
+.goal-text-content {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #e0e0e0;
+  word-break: break-word;
+}
+
+/* Decorative background circle */
+.bio-gloss-overlay {
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 180px;
+  height: 180px;
+  background: rgba(123, 167, 137, 0.15);
+  border-radius: 50%;
+  filter: blur(40px);
+  z-index: 1;
+}
+
+@media (max-width: 850px) {
+  .profile-layout-grid {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+}

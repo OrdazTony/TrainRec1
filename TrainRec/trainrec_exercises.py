@@ -38,7 +38,7 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, name TEXT, nickname TEXT, password_hash TEXT, sex TEXT, birthdate TEXT, height_in REAL, weight_lb REAL, fitness_activity TEXT, created_at TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS goals (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, target_weight_lb REAL, weekly_weight_change_lb REAL, activity_level TEXT, daily_calorie_target REAL, updated_at TEXT)")
+    c.execute("CREATE TABLE IF NOT EXISTS goals (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, goal_text TEXT, created_at TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS completed_workouts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, exercise_name TEXT, calories_burned REAL, completed_at TEXT)")
     conn.commit()
     conn.close()
@@ -108,10 +108,10 @@ def register():
     
     try:
         db.execute("""
-            INSERT INTO users (email, name, nickname, password_hash, sex, birthdate, height_in, weight_lb, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (email, name, nickname, password_hash, sex, birthdate, height_in, weight_lb, fitness_activity, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            email, 
+            email,  
             payload.get("name"), 
             payload.get("nickname"), 
             pw_hash, 
@@ -119,6 +119,7 @@ def register():
             payload.get("birthdate"), 
             payload.get("height_in"), 
             payload.get("weight_lb"), 
+            payload.get("fitness_activity"), 
             datetime.now(timezone.utc).isoformat()
         ))
         db.commit()
@@ -202,68 +203,70 @@ def update_profile():
     db.commit()
     return jsonify({"message": "Profile updated"})
 
-@app.route("/goals", methods=["POST"])
-def set_goals():
-    payload = request.get_json()
-    db = get_db()
-    user = db.execute("SELECT * FROM users WHERE id = ?", (request.user_id,)).fetchone()
+@app.route("/me/add_goal", methods=["POST"])
+@auth_required
+def add_goal():
+    data = request.get_json()
+    # Using 'text' as the universal key
+    content = data.get("text")
     
-    calories = calculate_daily_calories(user["sex"], user["weight_lb"], user["height_in"], 
-                                       user["birthdate"], payload["activity_level"], payload["weekly_weight_change_lb"])
+    if not content:
+        return jsonify({"error": "Content is empty"}), 400
 
-    db.execute("""INSERT INTO goals (user_id, target_weight_lb, weekly_weight_change_lb, activity_level, daily_calorie_target, updated_at)
-                  VALUES (?, ?, ?, ?, ?, ?)""", 
-               (request.user_id, payload["target_weight_lb"], payload["weekly_weight_change_lb"], 
-                payload["activity_level"], calories, datetime.utcnow().isoformat()))
+    db = get_db()
+    # Ensure your table column is 'goal_text'
+    db.execute("INSERT INTO goals (user_id, goal_text, created_at) VALUES (?, ?, ?)", 
+               (request.user_id, content, datetime.now().isoformat()))
     db.commit()
-    return jsonify({"message": "Goal set", "daily_calories": calories})
+    return jsonify({"message": "Added"}), 201
+
+@app.route("/me/delete_goal/<int:goal_id>", methods=["DELETE"])
+@auth_required
+def delete_goal(goal_id):
+    db = get_db()
+    # Check if goal exists and belongs to user
+    db.execute("DELETE FROM goals WHERE id = ? AND user_id = ?", (goal_id, request.user_id))
+    db.commit()
+    return jsonify({"message": "Deleted"}), 200
 
 @app.route("/me/full_profile", methods=["GET"])
+@auth_required
 def get_full_profile():
     db = get_db()
-    # 1. Fetch User Info (including the new bio field)
-    user = db.execute("SELECT name, email, nickname, sex, birthdate, height_in, weight_lb, bio FROM users WHERE id = ?", (request.user_id,)).fetchone()
     
-    # 2. Fetch Total Calories
-    total_cal = db.execute("SELECT SUM(calories_burned) as total FROM completed_workouts WHERE user_id = ?", (request.user_id,)).fetchone()
+    # 1. Fetch User 
+    user = db.execute(
+        "SELECT name, email, nickname, sex, birthdate, height_in, weight_lb, fitness_activity FROM users WHERE id = ?", 
+        (request.user_id,)
+    ).fetchone()
     
-    # 3. Fetch Last 5 Workouts
-    history = db.execute("SELECT exercise_name, completed_at FROM completed_workouts WHERE user_id = ? ORDER BY completed_at DESC LIMIT 5", (request.user_id,)).fetchall()
+    # 2. Fetch Goals list
+    goals_rows = db.execute(
+        "SELECT id, goal_text FROM goals WHERE user_id = ? ORDER BY created_at DESC", 
+        (request.user_id,)
+    ).fetchall()
+    
+    # 3. Fetch Total Calories
+    total_cal = db.execute(
+        "SELECT SUM(calories_burned) as total FROM completed_workouts WHERE user_id = ?", 
+        (request.user_id,)
+    ).fetchone()
+    
+    # 4. Fetch Last 5 Workouts
+    history = db.execute(
+        "SELECT exercise_name, completed_at FROM completed_workouts WHERE user_id = ? ORDER BY completed_at DESC LIMIT 5", 
+        (request.user_id,)
+    ).fetchall()
 
     if user:
         res = dict(user)
+        # Attach the fitness goals list
+        res["goals"] = [{"id": row["id"], "text": row["goal_text"]} for row in goals_rows]
         res["total_calories"] = total_cal["total"] or 0
         res["history"] = [dict(row) for row in history]
         return jsonify(res)
+        
     return jsonify({"error": "User not found"}), 404
-
-@app.route("/update_bio", methods=["POST"])
-def update_bio():
-    auth_header = request.headers.get('Authorization')
-    if not auth_header:
-        return jsonify({"error": "Unauthorized"}), 401
-    
-    # Get the bio from the React request
-    data = request.get_json()
-    new_bio = data.get("bio")
-    
-    try:
-        # Decode token to get user_id (using our bypass from earlier)
-        token = auth_header.split(" ")[1]
-        decoded = jwt.decode(token, options={"verify_signature": False})
-        user_id = decoded.get("user_id")
-
-        # Update the database
-        db = get_db()
-        db.execute("UPDATE users SET bio = ? WHERE id = ?", (new_bio, user_id))
-        db.commit()
-
-        # Return the updated user record
-        user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-        return jsonify(dict(user)), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/workouts/complete", methods=["POST"])
 def complete_workout():
