@@ -3,6 +3,8 @@ JWT_ALGORITHM = "HS256"
 
 from flask import Flask, jsonify, request, g  
 from flask_cors import CORS
+import json # Used for saving and loading session metadata and landmarks in JSON format.
+import os # Used for file system operations like creating directories and saving files.
 import uuid
 import sqlite3                                
 from datetime import datetime, timedelta
@@ -10,6 +12,8 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone #Used for timestamping session start and end times in a standardized format.
+from pathlib import Path # Used for easier path manipulations and ensuring cross-platform compatibility when saving session data.
 
 app = Flask(__name__)
 
@@ -55,6 +59,12 @@ def auth_required(fn):
         except: return jsonify({"error": "Invalid token"}), 401
         return fn(*args, **kwargs)
     return wrapper
+#Guarantees the data directory exists for storing pose session data. 
+#Each session will be saved as a JSON file with a unique name based on the timestamp and a random UUID to avoid collisions.
+#This is where Abdiel's section will read from to display past workout sessions and their associated pose data.
+BASE_DIR = Path(__file__).resolve().parent
+POSE_DATA_DIR = BASE_DIR / 'data' / 'pose_sessions'
+POSE_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------
 # EXERCISE LIBRARY DATA
@@ -327,31 +337,108 @@ def dashboard():
 # Temporary storage for active sessions
 active_sessions = {}
 
-@app.route("/api/session/start", methods=["POST"])
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def session_dir(session_id: str) -> Path:
+    path = POSE_DATA_DIR / session_id
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+@app.route('/api/session/start', methods=['POST'])
 def start_session():
-    data = request.json
-    exercise_id = data.get("exerciseId")
+    data = request.json or {}
+    exercise_id = data.get('exerciseId')
     
     # Generate a unique ID for this specific workout
     session_id = str(uuid.uuid4())
     
     active_sessions[session_id] = {
-        "exercise_id": exercise_id,
-        "start_time": uuid.uuid1().time, # A simple way to get a timestamp
-        "status": "active"
+        'exercise_id': exercise_id,
+        'start_time': utc_now_iso(), #actual start time of the session in ISO format
+        'status': 'active'
     }
     
-    print(f"Started session {session_id} for {exercise_id}")
-    return jsonify({"sessionId": session_id, "status": "success"})
+    return jsonify({'sessionId': session_id, 'status': 'success'})
 
-@app.route("/api/exercises", methods=["GET"])
+@app.route('/api/pose/session/start', methods=['POST'])
+def start_pose_session():
+    data = request.json or {}
+    session_id = str(uuid.uuid4())
+    record = {
+        'sessionId': session_id,
+        'exerciseId': data.get('exerciseId'),
+        'exerciseName': data.get('exerciseName'),
+        'cameraLabel': data.get('cameraLabel'),
+        'deviceId': data.get('deviceId'),
+        'facingMode': data.get('facingMode'),
+        'startedAt': utc_now_iso(),
+        'status': 'active',
+        'framesReceived': 0,
+    }
+
+    active_sessions[session_id] = record
+    directory = session_dir(session_id)
+    (directory / 'metadata.json').write_text(json.dumps(record, indent=2))
+    (directory / 'landmarks.json').touch(exist_ok=True)  # Create an empty file for landmarks
+
+    return jsonify({'sessionId': session_id, 'status': 'started'})
+
+@app.route('/api/pose/session/<session_id>/landmarks', methods=['POST'])
+def append_landmarks(session_id):
+    session = active_sessions.get(session_id)
+    if not session:
+        return jsonify({'error': 'Session not found'}), 404
+    
+    data = request.json or {}
+    frames = data.get('frames', [])
+    directory = session_dir(session_id)
+    jsonl_path = directory / 'landmarks.jsonl'
+
+    with jsonl_path.open('a', encoding='utf-8') as output:
+        for frame in frames:
+            output.write(json.dumps(frame) + '\n')
+    
+    session['framesReceived'] = session.get('framesReceived', 0) + len(frames)
+    metadata_path = directory / 'metadata.json'
+    metadata_path.write_text(json.dumps(session, indent=2))
+
+    return jsonify({'status': 'saved', 'framesSaved': len(frames), 'totalFrames': session['framesReceived']})
+
+@app.route('/api/pose/session/<session_id>/stop', methods=['POST'])
+def stop_pose_session(session_id):
+    session = active_sessions.get(session_id)
+    if not session:
+        return jsonify({'error': 'Session not found'}), 404
+    
+    data = request.json or {}
+    session['status'] = 'completed'
+    session['endedAt'] = utc_now_iso()
+    session['savedFramesClient'] = data.get('savedFrames', 0)
+    session['repCount'] = data.get('repCount', 0)
+
+    directory = session_dir(session_id)
+    (directory / 'metadata.json').write_text(json.dumps(session, indent=2))
+    return jsonify({'status': 'completed', 'sessionId': session_id})
+
+@app.route('/api/pose/sessions', methods=['GET'])
+def get_pose_sessions():
+    sessions = []
+    for entry in sorted(POSE_DATA_DIR.iterdir(), reverse=True):
+        metadata = entry / 'metadata.json'
+        if metadata.exists():
+            sessions.append(json.loads(metadata.read_text(encoding='utf-8')))
+    return jsonify(sessions)
+
+@app.route('/api/exercises', methods=['GET'])
 def get_exercises():
-    """Returns the full list of exercises for the library UI."""
+    #Returns the full list of exercises for the library UI.
     return jsonify(EXERCISES)
 
-@app.route("/api/exercises/filter", methods=["GET"])
+@app.route('/api/exercises/filter', methods=['GET'])
 def filter_exercises():
-    """Allows filtering by category or difficulty via URL parameters."""
+    #Allows filtering by category or difficulty via URL parameters.
     category = request.args.get('category')
     difficulty = request.args.get('difficulty')
     
@@ -366,10 +453,11 @@ def filter_exercises():
 
 @app.route("/api/health", methods=["GET"])
 def health_check():
-    """Simple route to verify the backend is running."""
-    return jsonify({"status": "online", "version": "2.0.0"})
+    #Simple route to verify the backend is running.
+    return jsonify({'status': 'online', 'version': '3.0.0'})
 
 if __name__ == "__main__":
     init_db()
+if __name__ == '__main__':
     # Standard port 5000 is used so Vite proxy works correctly.
     app.run(debug=True, port=5000)

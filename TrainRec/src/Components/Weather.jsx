@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+/*import React, { useState } from "react";
 
 const Weather = () => {
   const [city, setCity] = useState("");
@@ -81,7 +81,7 @@ const Weather = () => {
 };
 
 export default Weather;
-//*/
+*/
 
 //Open-Meteo Fixed version second day 
 /*
@@ -289,4 +289,180 @@ const WeatherBrightSky = () => {
 
 export default WeatherBrightSky;
 
+*/
+//Current Accurate Up to date code getting worked on.
+
+import React, { useState, useEffect } from 'react';
+
+const WeatherApp = () => {
+  const [weather, setWeather] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Example coordinates for Toronto, ON
+  const lat = 43.6532;
+  const lon = -79.3832;
+
+  function TextInput(){
+
+    const [text, setText] = useState("");
+
+    return (
+
+      <div style= {{padding: '20px'}}>
+      <label htmlFor='name-input'>Enter City: </label>
+      <input
+      id="name-input"
+      type="text"
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      placeholder="Type something..."
+      />
+      <p>Current Value: {text}</p>
+      </div>
+
+  );
+
+  }
+
+  
+
+
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        // Open-Meteo does not require an API key
+        const response = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
+        );
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch weather data');
+        }
+
+        const data = await response.json();
+        setWeather(data.current_weather);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWeather();
+  }, [lat, lon]);
+
+  if (loading) return <p>Loading weather...</p>;
+  if (error) return <p>Error: {error}</p>;
+
+  return (
+    <div style={{ padding: '20px', border: '1px solid #ccc', borderRadius: '8px', maxWidth: '300px' }}>
+      <h2>Current Weather</h2>
+      <p><strong>Temperature:</strong> {weather.temperature}°C</p>
+      <p><strong>Wind Speed:</strong> {weather.windspeed} km/h</p>
+      <p><strong>Weather Code:</strong> {weather.weathercode}</p>
+      <small>Data provided by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a></small>
+    </div>
+  );
+};
+
+export default WeatherApp;
+
+//Latest update attempt
+/*
+
+import React, { useState, useEffect } from 'react';
+
+const WeatherApp = () => {
+  const [city, setCity] = useState('Toronto'); // Default city
+  const [coords, setCoords] = useState({ lat: 43.6532, lon: -79.3832 });
+  const [weather, setWeather] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [inputValue, setInputValue] = useState('');
+
+  // Function to convert City Name to Lat/Lon
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!inputValue) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const geoRes = await fetch(
+        `https://open-meteo.com{inputValue}&count=1&language=en&format=json`
+      );
+      const geoData = await geoRes.json();
+
+      if (!geoData.results || geoData.results.length === 0) {
+        throw new Error('City not found');
+      }
+
+      const { latitude, longitude, name } = geoData.results[0];
+      setCoords({ lat: latitude, lon: longitude });
+      setCity(name);
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  // Fetch weather whenever coords change
+  useEffect(() => {
+    const fetchWeather = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current_weather=true`
+        );
+        
+        if (!response.ok) throw new Error('Failed to fetch weather');
+
+        const data = await response.json();
+        setWeather(data.current_weather);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWeather();
+  }, [coords]);
+
+  return (
+    <div style={{ padding: '20px', border: '1px solid #ccc', borderRadius: '8px', maxWidth: '350px', fontFamily: 'sans-serif' }}>
+      <form onSubmit={handleSearch} style={{ marginBottom: '20px' }}>
+        <label htmlFor='city-input'><strong>Enter City:</strong> </label>
+        <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+          <input
+            id="city-input"
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="e.g. Tokyo, London..."
+            style={{ flex: 1 }}
+          />
+          <button type="submit">Search</button>
+        </div>
+      </form>
+
+      {loading && <p>Loading...</p>}
+      {error && <p style={{ color: 'red' }}>Error: {error}</p>}
+
+      {weather && !loading && (
+        <div>
+          <h2>{city}</h2>
+          <p><strong>Temperature:</strong> {weather.temperature}°C</p>
+          <p><strong>Wind Speed:</strong> {weather.windspeed} km/h</p>
+          <p><strong>Weather Code:</strong> {weather.weathercode}</p>
+          <small>Data provided by <a href="https://open-meteo.com/" target="_blank">Open-Meteo</a></small>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default WeatherApp;
 */
