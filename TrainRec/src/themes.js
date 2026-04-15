@@ -115,6 +115,28 @@ export const themesettings = (mode) => {
       h5: { fontFamily: '"Google Sans", sans-serif' },
       h6: { fontFamily: '"Google Sans", sans-serif' },
     },
+    components: {
+      MuiButton: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            fontSize: '0.7rem',
+            padding: '5px 10px',
+            [theme.breakpoints.up('sm')]: {
+              fontSize: '0.8rem',
+              padding: '6px 14px',
+            },
+            [theme.breakpoints.up('md')]: {
+              fontSize: '0.875rem',
+              padding: '7px 18px',
+            },
+            [theme.breakpoints.up('lg')]: {
+              fontSize: '0.9rem',
+              padding: '8px 22px',
+            },
+          }),
+        },
+      },
+    },
   };
 };
 

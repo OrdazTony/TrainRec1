@@ -26,7 +26,7 @@ cloudinary.config(
     secure=True
 )
 
-_allowed_origins = ["http://localhost:5173"]
+_allowed_origins = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://127.0.0.1:5173", "http://127.0.0.1:5174"]
 _frontend_url = os.environ.get("FRONTEND_URL")
 if _frontend_url:
     _allowed_origins.append(_frontend_url)

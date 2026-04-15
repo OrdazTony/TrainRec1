@@ -505,7 +505,11 @@ if (!sessionIdRef.current) {
                 <video
                   ref={videoRef}
                   style={{
+                    position: 'absolute',
+                    inset: 0,
                     width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
                     display: 'block',
                     transform: preferredFacingMode === 'user' ? 'scaleX(-1)' : 'none',
                   }}
@@ -557,8 +561,8 @@ if (!sessionIdRef.current) {
           </Box>
 
           {/* Controls */}
-          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="nowrap">
-            <FormControl sx={{ minWidth: 200 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'center' }} flexWrap="wrap">
+            <FormControl sx={{ minWidth: { xs: '100%', sm: 200 } }}>
               <InputLabel id="camera-device-label">Camera device</InputLabel>
               <Select
                 labelId="camera-device-label"

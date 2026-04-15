@@ -163,7 +163,7 @@ const Workouts = () => {
             </Box>
           ) : (
             <Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="h6" sx={{ color: primaryBlue, fontWeight: 900 }}>
                   WORKOUT SESSION
                 </Typography>

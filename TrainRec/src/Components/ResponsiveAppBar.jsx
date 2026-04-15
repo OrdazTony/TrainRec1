@@ -109,7 +109,7 @@ React.useEffect(() => {
   };
 
   return (
-    <AppBar position="static">
+    <AppBar position="sticky">
       <Container maxWidth="xl">
         <Toolbar disableGutters>
           {/* Brand logo and title - desktop */}
@@ -187,19 +187,20 @@ React.useEffect(() => {
             endColor={gradientEnd}
             sx={{
               display: { xs: 'flex', md: 'none' },
-              mr: 1,
+              mr: 0.5,
               fontSize: '4rem',
             }}
           />
           <Typography
             variant="h5"
-            noWrap
             component="a"
             href="#app-bar-with-responsive-menu"
             sx={{
-              mr: 2,
+              mr: 0,
               display: { xs: 'flex', md: 'none' },
               flexGrow: 1,
+              flexShrink: 1,
+              minWidth: 0,
               fontFamily: '"Boldonse", system-ui',
               fontWeight: 700,
               fontSize: '2rem',
@@ -225,7 +226,7 @@ React.useEffect(() => {
             ))}
           </Box>
           {/* Theme mode toggle */}
-          <Box display="flex" justifyContent={"space-between"} p={2}>
+          <Box display="flex" justifyContent={"space-between"} p={{ xs: 0.5, md: 2 }}>
             <Tooltip title="Toggle light/dark mode">
               <IconButton onClick={colorMode.toggleColorMode}>
                 {theme.palette.mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
