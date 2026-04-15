@@ -5,9 +5,7 @@ import {
   Chip,
   Checkbox,
   Container,
-  Divider,
   Grid,
-  LinearProgress,
   Stack,
   Typography,
 } from "@mui/material";
@@ -26,7 +24,7 @@ import API_BASE from "../config";
 const CHECKLIST_KEY      = "trainrec_checklist";
 const DAILY_LOG_KEY      = "trainrec_daily_log";
 const INTAKE_LOG_KEY     = "trainrec_intake_log";
-const GOAL_COMPLETE_KEY  = "trainrec_completed_goals"; // array of goal IDs
+const WEEKLY_HISTORY_KEY = "trainrec_weekly_progress_history";
 
 // ── Goals: daily-reset storage ────────────────────────────────────────────────
 const DAILY_GOAL_KEY = "trainrec_daily_goal_progress"; // {date, ids:[]}
@@ -50,37 +48,49 @@ function loadChecklist() {
   catch { return []; }
 }
 
-// ── Metric card (identical to Dashboard's MetricCard) ─────────────────────────
-const MetricCard = ({ title, value, subtitle, caption, Icon, gradient }) => (
-  <Card
-    sx={{
-      p: 2.5,
-      height: "100%",
-      borderRadius: 4,
-      color: "#fff",
-      background: gradient,
-      boxShadow: `0 20px 35px ${alpha("#000", 0.28)}`,
-    }}
-  >
-    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-      <Box
-        sx={{
-          width: 42, height: 42, borderRadius: 2,
-          display: "grid", placeItems: "center",
-          bgcolor: alpha("#fff", 0.16),
-        }}
-      >
-        <Icon sx={{ fontSize: 22 }} />
-      </Box>
-      <Typography variant="caption" sx={{ color: alpha("#fff", 0.8), fontWeight: 700 }}>
-        {caption}
-      </Typography>
-    </Stack>
-    <Typography sx={{ mt: 3, fontWeight: 700 }}>{title}</Typography>
-    <Typography variant="h4" sx={{ fontWeight: 900, lineHeight: 1.1 }}>{value}</Typography>
-    <Typography variant="body2" sx={{ color: alpha("#fff", 0.84), mt: 0.5 }}>{subtitle}</Typography>
-  </Card>
-);
+function clampProgress(value) {
+  return Math.max(0, Math.min(Math.round(value || 0), 100));
+}
+
+function loadWeeklyHistory() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(WEEKLY_HISTORY_KEY) || "[]");
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveWeeklyHistory(history) {
+  localStorage.setItem(WEEKLY_HISTORY_KEY, JSON.stringify(history));
+}
+
+function upsertWeeklyHistory(history, nextEntry) {
+  const current = history.find((entry) => entry.date === nextEntry.date);
+  if (current && JSON.stringify(current) === JSON.stringify(nextEntry)) return history;
+
+  const next = [...history.filter((entry) => entry.date !== nextEntry.date), nextEntry]
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return next.slice(-21);
+}
+
+function getWeekDates(referenceDate = new Date()) {
+  const current = new Date(referenceDate);
+  current.setHours(0, 0, 0, 0);
+  const mondayOffset = (current.getDay() + 6) % 7;
+  current.setDate(current.getDate() - mondayOffset);
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(current);
+    date.setDate(current.getDate() + index);
+    return {
+      dateKey: date.toISOString().slice(0, 10),
+      day: date.toLocaleDateString("en-US", { weekday: "short" }),
+      label: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    };
+  });
+}
 
 // ── Stat pill (top banner) ─────────────────────────────────────────────────────
 const StatPill = ({ Icon, label, value, color }) => (
@@ -95,23 +105,46 @@ const StatPill = ({ Icon, label, value, color }) => (
   </Stack>
 );
 
-// ── Mini bar chart ─────────────────────────────────────────────────────────────
-const BarChart = ({ data }) => {
-  const max = Math.max(...data.map((d) => Math.max(d.workout, d.calories, d.goals)), 1);
-  const colors = { workout: "#36b7d7", calories: "#ff9f43", goals: "#22c55e" };
+const RingGroup = ({ values, size = 104, stroke = 8, centerLabel, centerCaption }) => {
+  const rings = [
+    { key: "calories", color: "#ff9f43", track: alpha("#ff9f43", 0.14), progress: values.calories, radius: size / 2 - stroke / 2 },
+    { key: "workout", color: "#36b7d7", track: alpha("#36b7d7", 0.14), progress: values.workout, radius: size / 2 - stroke * 1.8 },
+    { key: "goals", color: "#22c55e", track: alpha("#22c55e", 0.14), progress: values.goals, radius: size / 2 - stroke * 3.1 },
+  ];
+
   return (
-    <Stack direction="row" spacing={1} alignItems="flex-end" sx={{ height: 110, px: 1 }}>
-      {data.map((d) => (
-        <Stack key={d.day} spacing={0.5} alignItems="center" sx={{ flex: 1 }}>
-          <Stack direction="row" spacing="2px" alignItems="flex-end" sx={{ height: 80 }}>
-            {["workout", "calories", "goals"].map((k) => (
-              <Box key={k} sx={{ width: 8, height: `${(d[k] / max) * 80}px`, bgcolor: colors[k], borderRadius: "3px 3px 0 0", minHeight: 2, transition: "height 0.4s ease" }} />
-            ))}
-          </Stack>
-          <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.6rem" }}>{d.day}</Typography>
-        </Stack>
-      ))}
-    </Stack>
+    <Box sx={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size}>
+        {rings.map(({ key, color, track, progress, radius }) => {
+          const circumference = 2 * Math.PI * radius;
+          const offset = circumference * (1 - clampProgress(progress) / 100);
+          return (
+            <g key={key}>
+              <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={track} strokeWidth={stroke} />
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                fill="none"
+                stroke={color}
+                strokeWidth={stroke}
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                strokeLinecap="round"
+                transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                style={{ transition: "stroke-dashoffset 0.6s ease" }}
+              />
+            </g>
+          );
+        })}
+      </svg>
+      <Box sx={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <Typography sx={{ fontWeight: 900, fontSize: size > 100 ? "1.6rem" : "0.95rem", lineHeight: 1 }}>
+          {centerLabel}
+        </Typography>
+        {centerCaption ? <Typography variant="caption" sx={{ color: "text.secondary" }}>{centerCaption}</Typography> : null}
+      </Box>
+    </Box>
   );
 };
 
@@ -144,6 +177,7 @@ const Progress = () => {
 
   const [goals, setGoals]                         = useState([]);
   const [completedGoalIds, setCompletedGoalIds]   = useState(() => loadCompletedGoals());
+  const [weeklyHistory, setWeeklyHistory]         = useState(() => loadWeeklyHistory());
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -189,15 +223,61 @@ const Progress = () => {
   const goalProgress    = goals.length > 0 ? (completedGoalIds.length / goals.length) * 100 : 0;
   const overall         = Math.round((calorieProgress + workoutProgress + intakeProgress + goalProgress) / 4);
 
-  const weeklyData = useMemo(() => [
-    { day: "Mon", workout: 34, calories: 58, goals: 50 },
-    { day: "Tue", workout: 45, calories: 33, goals: 33 },
-    { day: "Wed", workout: 76, calories: 51, goals: 66 },
-    { day: "Thu", workout: 63, calories: 75, goals: 100 },
-    { day: "Fri", workout: 34, calories: 57, goals: 50 },
-    { day: "Sat", workout: 33, calories: 55, goals: 33 },
-    { day: "Sun", workout: workoutProgress, calories: calorieProgress, goals: goalProgress },
-  ], [calorieProgress, workoutProgress, goalProgress]);
+  const todayKey = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const todaySnapshot = useMemo(() => ({
+    date: todayKey,
+    calories: clampProgress(calorieProgress),
+    workout: clampProgress(workoutProgress),
+    goals: clampProgress(goalProgress),
+    score: clampProgress((calorieProgress + workoutProgress + goalProgress) / 3),
+    caloriesBurned: +caloriesBurned.toFixed(1),
+    caloriesIngested: +caloriesIngested.toFixed(1),
+    completedWorkouts: completedWorkouts.length,
+    workoutTarget: workoutOptions.length,
+    completedGoals: completedGoalIds.length,
+    goalTarget: goals.length,
+  }), [todayKey, calorieProgress, workoutProgress, goalProgress, caloriesBurned, caloriesIngested, completedWorkouts.length, workoutOptions.length, completedGoalIds.length, goals.length]);
+
+  useEffect(() => {
+    setWeeklyHistory((prev) => {
+      const next = upsertWeeklyHistory(prev, todaySnapshot);
+      if (next !== prev) saveWeeklyHistory(next);
+      return next;
+    });
+  }, [todaySnapshot]);
+
+  const weeklyData = useMemo(() => {
+    const historyMap = new Map(weeklyHistory.map((entry) => [entry.date, entry]));
+    return getWeekDates().map(({ dateKey, day, label }) => {
+      const entry = historyMap.get(dateKey);
+      return {
+        date: dateKey,
+        day,
+        label,
+        calories: entry?.calories ?? 0,
+        workout: entry?.workout ?? 0,
+        goals: entry?.goals ?? 0,
+        score: entry?.score ?? 0,
+        hasData: Boolean(entry),
+      };
+    });
+  }, [weeklyHistory]);
+
+  const recordedDays = useMemo(
+    () => weeklyData.filter((entry) => entry.hasData),
+    [weeklyData]
+  );
+
+  const weeklyAverage = useMemo(() => {
+    if (recordedDays.length === 0) return 0;
+    return Math.round(recordedDays.reduce((sum, entry) => sum + entry.score, 0) / recordedDays.length);
+  }, [recordedDays]);
+
+  const bestDay = useMemo(() => {
+    if (recordedDays.length === 0) return null;
+    return recordedDays.reduce((best, entry) => (entry.score > best.score ? entry : best), recordedDays[0]);
+  }, [recordedDays]);
 
   const sectionCard = {
     borderRadius: 5,
@@ -278,67 +358,39 @@ const Progress = () => {
           <Grid size={{ xs: 12, lg: 8 }}>
             <Stack spacing={3}>
 
-              {/* Rings + progress bars */}
+              {/* Weekly summary */}
               <Card sx={{ ...sectionCard, p: { xs: 2, md: 3 } }}>
-                <Typography variant="h6" sx={{ fontWeight: 800, mb: 3 }}>Activity Rings</Typography>
-                <Stack direction={{ xs: "column", md: "row" }} spacing={4} alignItems="center">
+                <Stack direction={{ xs: "column", md: "row" }} spacing={3} alignItems={{ xs: "stretch", md: "center" }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>Weekly Summary</Typography>
+                    <Typography variant="body2" sx={{ ...softText, maxWidth: 520 }}>
+                      This week now reflects your recorded calorie burn, completed workouts, and checked goals instead of placeholder data.
+                    </Typography>
 
-                  {/* Big SVG rings */}
-                  <Box sx={{ position: "relative", width: 240, height: 240, flexShrink: 0 }}>
-                    <svg width={240} height={240}>
+                    <Grid container spacing={1.5} sx={{ mt: 1.5 }}>
                       {[
-                        { r: 104, sw: 16, color: "#ff9f43", track: alpha("#ff9f43", 0.15), progress: calorieProgress  },
-                        { r:  76, sw: 16, color: "#9b6bff", track: alpha("#9b6bff", 0.15), progress: workoutProgress  },
-                        { r:  48, sw: 16, color: "#22c55e", track: alpha("#22c55e", 0.15), progress: intakeProgress    },
-                      ].map(({ r, sw, color, track, progress }) => {
-                        const circ   = 2 * Math.PI * r;
-                        const offset = circ * (1 - Math.min(progress, 100) / 100);
-                        return (
-                          <g key={r}>
-                            <circle cx={120} cy={120} r={r} fill="none" stroke={track} strokeWidth={sw} />
-                            <circle cx={120} cy={120} r={r} fill="none" stroke={color} strokeWidth={sw}
-                              strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-                              transform="rotate(-90 120 120)"
-                              style={{ transition: "stroke-dashoffset 0.7s ease" }} />
-                          </g>
-                        );
-                      })}
-                    </svg>
-                    <Box sx={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                      <Typography variant="h4" sx={{ fontWeight: 900, lineHeight: 1 }}>
-                        {Math.round((calorieProgress + workoutProgress + intakeProgress) / 3)}%
-                      </Typography>
-                      <Typography variant="caption" sx={softText}>overall</Typography>
-                    </Box>
+                        { label: "Days logged", value: `${recordedDays.length} / 7`, color: "#36b7d7" },
+                        { label: "Weekly average", value: `${weeklyAverage}%`, color: "#9b6bff" },
+                        { label: "Best day", value: bestDay ? `${bestDay.day} ${bestDay.score}%` : "No data yet", color: "#22c55e" },
+                        { label: "Today", value: `${todaySnapshot.score}%`, color: "#ff9f43" },
+                      ].map(({ label, value, color }) => (
+                        <Grid key={label} size={{ xs: 12, sm: 6 }}>
+                          <Box sx={{ p: 1.5, borderRadius: 3, border: `1px solid ${alpha(color, 0.22)}`, bgcolor: alpha(color, 0.08) }}>
+                            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.35 }}>{label}</Typography>
+                            <Typography sx={{ fontWeight: 800 }}>{value}</Typography>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
                   </Box>
 
-                  {/* Detailed bars */}
-                  <Stack spacing={2.5} sx={{ flex: 1, width: "100%" }}>
-                    {[
-                      { color: "#ff9f43", label: "Calories burned",   value: `${caloriesBurned} / ${BURN_GOAL} kcal`,       pct: calorieProgress  },
-                      { color: "#9b6bff", label: "Workouts finished", value: `${completedWorkouts.length} / ${workoutOptions.length} sessions`, pct: workoutProgress  },
-                      { color: "#22c55e", label: "Calorie intake",    value: `${caloriesIngested} / ${INTAKE_GOAL} kcal`,   pct: intakeProgress   },
-                    ].map(({ color, label, value, pct }) => (
-                      <Box key={label}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.75 }}>
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: color }} />
-                            <Typography variant="body2" sx={softText}>{label}</Typography>
-                          </Stack>
-                          <Typography variant="body2" sx={{ fontWeight: 700 }}>{value}</Typography>
-                        </Stack>
-                        <LinearProgress
-                          variant="determinate"
-                          value={pct}
-                          sx={{
-                            height: 8, borderRadius: 4,
-                            bgcolor: alpha(color, 0.15),
-                            "& .MuiLinearProgress-bar": { bgcolor: color, borderRadius: 4 },
-                          }}
-                        />
-                      </Box>
-                    ))}
-                  </Stack>
+                  <RingGroup
+                    size={188}
+                    stroke={14}
+                    values={{ calories: calorieProgress, workout: workoutProgress, goals: goalProgress }}
+                    centerLabel={`${todaySnapshot.score}%`}
+                    centerCaption="today"
+                  />
                 </Stack>
               </Card>
 
@@ -469,13 +521,56 @@ const Progress = () => {
                 )}
               </Card>
 
-              {/* Weekly chart */}
+              {/* Weekly activity rings */}
               <Card sx={{ ...sectionCard, p: { xs: 2, md: 2.5 } }}>
-                <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>Weekly Summary</Typography>
-                <Typography variant="body2" sx={{ ...softText, mb: 2 }}>Sunday bar reflects today&apos;s live data.</Typography>
-                <BarChart data={weeklyData} />
-                <Divider sx={{ my: 1.5 }} />
-                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+                <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>Weekly Activity Rings</Typography>
+                <Typography variant="body2" sx={{ ...softText, mb: 2 }}>Each day shows recorded calorie, workout, and goal progress.</Typography>
+                <Grid container spacing={1.5}>
+                  {weeklyData.map((entry) => (
+                    <Grid key={entry.date} size={{ xs: 6, sm: 4, md: 3, lg: 6 }}>
+                      <Box sx={{
+                        p: 1.5,
+                        borderRadius: 3,
+                        height: "100%",
+                        border: `1px solid ${alpha(theme.palette.primary.main, entry.hasData ? 0.18 : 0.08)}`,
+                        bgcolor: alpha(theme.palette.background.paper, entry.hasData ? 0.68 : 0.45),
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 1,
+                      }}>
+                        <Box sx={{ textAlign: "center" }}>
+                          <Typography sx={{ fontWeight: 800 }}>{entry.day}</Typography>
+                          <Typography variant="caption" sx={softText}>{entry.label}</Typography>
+                        </Box>
+                        <RingGroup
+                          size={94}
+                          stroke={7}
+                          values={entry}
+                          centerLabel={`${entry.score}%`}
+                          centerCaption={entry.hasData ? "score" : "none"}
+                        />
+                        <Stack spacing={0.35} sx={{ width: "100%" }}>
+                          {[
+                            { label: "Burn", value: entry.calories, color: "#ff9f43" },
+                            { label: "Work", value: entry.workout, color: "#36b7d7" },
+                            { label: "Goals", value: entry.goals, color: "#22c55e" },
+                          ].map(({ label, value, color }) => (
+                            <Stack key={label} direction="row" justifyContent="space-between" alignItems="center">
+                              <Stack direction="row" spacing={0.6} alignItems="center">
+                                <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: color }} />
+                                <Typography variant="caption" sx={softText}>{label}</Typography>
+                              </Stack>
+                              <Typography variant="caption" sx={{ fontWeight: 700 }}>{value}%</Typography>
+                            </Stack>
+                          ))}
+                        </Stack>
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
                   {[
                     { color: "#36b7d7", label: "Workouts" },
                     { color: "#ff9f43", label: "Calories" },
