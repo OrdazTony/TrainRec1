@@ -19,7 +19,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { colorModeContext } from '../themes';
 import API_BASE from '../config';
 
-const pages = ['Dashboard', 'Workouts', 'Progress', 'Weather', 'GymLocator'];
+const pages = ['Dashboard', 'Workouts', 'Progress', 'Explore'];
 const settings = ['Profile', 'Dashboard', 'Logout'];
 
 function GradientRadioIcon({ startColor, endColor, ...props }) {
@@ -174,7 +174,7 @@ React.useEffect(() => {
               {pages.map((page) => (
                 <MenuItem key={page} onClick={handleCloseNavMenu}>
                       <Typography sx={{ textAlign: 'center' }}>
-                          <Link style={{ color: 'white', textDecoration: 'none' }} to={`/${page}`}>
+                          <Link style={{ color: 'white', textDecoration: 'none' }} to={page === 'Dashboard' ? '/' : `/${page.toLowerCase()}`}>
                                 {page}
                           </Link>
                       </Typography>
@@ -223,7 +223,7 @@ React.useEffect(() => {
                 onClick={handleCloseNavMenu}
                 sx={{ my: 2, color: 'white', display: 'block' }}
               >
-                <Link style={{ color: 'white', textDecoration: 'none' }} to={`/${page}`}>{page}</Link>
+                <Link style={{ color: 'white', textDecoration: 'none' }} to={page === 'Dashboard' ? '/' : `/${page.toLowerCase()}`}>{page}</Link>
               </Button>
             ))}
           </Box>
