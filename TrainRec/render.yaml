@@ -2,7 +2,7 @@ services:
   - type: web
     name: trainrec-backend
     env: python
-    rootDir: TrainRec1/TrainRec
+    rootDir: TrainRec
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn trainrec_exercises:app
     envVars:
