@@ -47,7 +47,38 @@ function ResponsiveAppBar() {
   const gradientStart = theme.palette.mode === 'dark' ? '#7c4dff' : '#fff4e8';
   const gradientEnd = theme.palette.mode === 'dark' ? '#a855f7' : '#ffc78f';
   const moodGradient = `linear-gradient(135deg, ${gradientStart} 0%, ${gradientEnd} 100%)`;
+  const [profilePic, setProfilePic] = React.useState(null);
 
+React.useEffect(() => {
+    const fetchUserAvatar = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      try {
+        const res = await fetch('http://localhost:5000/me/full_profile', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setProfilePic(data.profile_pic);
+        }
+      } catch (err) {
+        console.error("Failed to fetch avatar for app bar:", err);
+      }
+    };
+
+    // 1. Fetch immediately when the app loads
+    fetchUserAvatar();
+
+    // 2. NEW: Listen for the custom event from Profile.jsx
+    window.addEventListener('avatarUpdate', fetchUserAvatar);
+
+    // 3. NEW: Clean up the listener so it doesn't duplicate
+    return () => {
+      window.removeEventListener('avatarUpdate', fetchUserAvatar);
+    };
+  }, []);
+  
   const handleOpenNavMenu = (event) => {
     setAnchorElNav(event.currentTarget);
   };
@@ -205,7 +236,18 @@ function ResponsiveAppBar() {
           <Box sx={{ flexGrow: 0 }}>
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <Avatar alt="" src="/static/images/avatar/2.jpg" />
+                  <Avatar 
+                     alt="" /* <--- Empty string forces the default generic icon! */
+                    src={
+                    profilePic 
+                      ? `http://localhost:5000/static/uploads/${profilePic}` 
+                      : "/static/images/avatar/2.jpg"
+                    }  
+                    imgProps={{
+                    // Fallback to original default generic icon if specified default fails
+                    onError: (e) => { e.target.src = "/static/images/avatar/2.jpg"; }
+                  }}                      
+                />
               </IconButton>
             </Tooltip>
             <Menu

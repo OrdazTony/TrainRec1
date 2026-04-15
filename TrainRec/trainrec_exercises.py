@@ -1,5 +1,4 @@
-JWT_SECRET = "your-chosen-secret-key-here"
-JWT_ALGORITHM = "HS256"
+
 
 from flask import Flask, jsonify, request, g  
 from flask_cors import CORS
@@ -14,12 +13,18 @@ import jwt
 from datetime import datetime, timezone, timedelta
 from datetime import datetime, timezone #Used for timestamping session start and end times in a standardized format.
 from pathlib import Path # Used for easier path manipulations and ensuring cross-platform compatibility when saving session data.
+from werkzeug.utils import secure_filename
+import os
 
 app = Flask(__name__)
 
 # This allows your team's React app (port 5173) to access this API (port 5000)
 CORS(app)
 
+# --- Image Upload Setup ---
+UPLOAD_FOLDER = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True) # Creates the folder if it doesn't exist
 
 DB_PATH = "trainrec.db"
 JWT_SECRET = "replace-with-a-very-secret-key"
@@ -41,9 +46,16 @@ def close_connection(exception):
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, name TEXT, nickname TEXT, password_hash TEXT, sex TEXT, birthdate TEXT, height_in REAL, weight_lb REAL, fitness_activity TEXT, created_at TEXT)")
+    c.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, name TEXT, nickname TEXT, password_hash TEXT, sex TEXT, birthdate TEXT, height_in REAL, weight_lb REAL, fitness_activity TEXT, profile_pic TEXT, created_at TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS goals (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, goal_text TEXT, created_at TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS completed_workouts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, exercise_name TEXT, calories_burned REAL, completed_at TEXT)")
+    
+    # Safe update: Adds the column if you already have an active database
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN profile_pic TEXT")
+    except sqlite3.OperationalError:
+        pass # If it throws an error, the column already exists.
+    
     conn.commit()
     conn.close()
 
@@ -140,7 +152,7 @@ def register():
         token = jwt.encode({
             'user_id': user['id'],
             'exp': datetime.now(timezone.utc) + timedelta(hours=24)
-        }, "JWT_SECRET", algorithm="HS256")
+        }, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
         return jsonify({"message": "Account Created", "token": token}), 201
 
@@ -246,7 +258,7 @@ def get_full_profile():
     
     # 1. Fetch User 
     user = db.execute(
-        "SELECT name, email, nickname, sex, birthdate, height_in, weight_lb, fitness_activity FROM users WHERE id = ?", 
+        "SELECT name, email, nickname, sex, birthdate, height_in, weight_lb, fitness_activity, profile_pic FROM users WHERE id = ?", 
         (request.user_id,)
     ).fetchone()
     
@@ -315,6 +327,37 @@ def get_profile():
     except Exception as e:
         return jsonify({"error": str(e)}), 401
     
+@app.route("/me/upload_icon", methods=["POST"])
+@auth_required
+def upload_icon():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    # Secure the filename and add user ID so users don't overwrite each other's photos
+    filename = f"user_{request.user_id}_{secure_filename(file.filename)}"
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+
+    # Save the filename to the database
+    db = get_db()
+    db.execute("UPDATE users SET profile_pic = ? WHERE id = ?", (filename, request.user_id))
+    db.commit()
+
+    return jsonify({"message": "Icon updated", "profile_pic": filename}), 200
+
+@app.route("/me/remove_icon", methods=["DELETE"])
+@auth_required
+def remove_icon():
+    db = get_db()
+    # Set the profile_pic to NULL in the database
+    db.execute("UPDATE users SET profile_pic = NULL WHERE id = ?", (request.user_id,))
+    db.commit()
+    return jsonify({"message": "Profile picture removed"}), 200
+
 @app.route("/dashboard", methods=["GET"])
 def dashboard():
     db = get_db()

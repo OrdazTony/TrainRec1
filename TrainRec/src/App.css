@@ -1,3 +1,23 @@
+/* LIGHT MODE COLORS */
+:root, [data-theme='light'] {
+  --bg-main: #f4f7f6;
+  --card-bg-base: #ffffff;
+  --text-main: #1a1625;
+  --text-muted: rgba(26, 22, 37, 0.6);
+  --input-bg: rgba(0, 0, 0, 0.05);
+  --glass-overlay: rgba(123, 167, 137, 0.1);
+}
+
+/* DARK MODE COLORS */
+[data-theme='dark'] {
+  --bg-main: #0a0b16;
+  --card-bg-base: #1b1b36;
+  --text-main: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.6);
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --glass-overlay: rgba(123, 167, 137, 0.15);
+}
+
 #root {
   max-width: 1280px;
   margin: 0 auto;
@@ -257,15 +277,18 @@
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 1.5px;
-  color: rgba(255, 255, 255, 0.6);
+  /* Changed from rgba(255,255,255,0.6) to dynamic muted text */
+  color: var(--text-muted); 
   margin-bottom: 6px;
 }
 
 .card-value {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #ffffff;
+  /* Changed from #ffffff to dynamic main text */
+  color: var(--text-main); 
 }
+
 /* Responsive Grid */
 @media (max-width: 900px) {
   .account-grid {
@@ -451,7 +474,8 @@
   font-size: 1.05rem;
   font-weight: 600;
   line-height: 1.4;
-  color: #e0e0e0;
+  /* Changed from #e0e0e0 to dynamic main text */
+  color: var(--text-main); 
   word-break: break-word;
 }
 
@@ -473,4 +497,53 @@
     grid-template-columns: 1fr;
     gap: 30px;
   }
+}
+
+/* --- PROFILE AVATAR & EDIT ICONS --- */
+.avatar-wrapper {
+  position: relative;
+  display: inline-block;
+  transition: transform 0.2s;
+  z-index: 10;
+}
+
+.avatar-wrapper:hover {
+  transform: scale(1.03);
+}
+
+.avatar-image {
+  width: 140px; 
+  height: 140px; 
+  border-radius: 50%;
+  border: 3px solid; 
+  display: block;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+/* Base styles for the floating buttons */
+.icon-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border-width: 2px;
+  border-style: solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  z-index: 20; /* Ensures buttons stay above the image */
+}
+
+.icon-action-btn:hover {
+  transform: scale(1.15);
+}
+
+/* Red styling when hovering over the trash bin */
+.icon-action-btn.delete-btn:hover {
+  color: #ff4d4d !important;
+  border-color: #ff4d4d !important;
 }
