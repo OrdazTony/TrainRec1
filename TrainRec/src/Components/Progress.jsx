@@ -320,7 +320,7 @@ const Progress = () => {
   const confidenceTone = useMemo(() => {
     if (confidenceLevel >= 80) return { label: "Locked in", color: "#22c55e" };
     if (confidenceLevel >= 55) return { label: "Building momentum", color: "#36b7d7" };
-    return { label: "Take it steady", color: "#ff9f43" };
+    return { label: "Taking it steady", color: "#ff9f43" };
   }, [confidenceLevel]);
 
   const sectionCard = {
