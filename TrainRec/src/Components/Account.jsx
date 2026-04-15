@@ -86,6 +86,9 @@ const AccountPage = () => {
       style={{ 
         padding: '60px 20px', 
         minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
         // THIS pulls the exact background color from your MUI theme (Dashboard)
         backgroundColor: theme.palette.background.default, 
         color: theme.palette.text.primary,
@@ -94,7 +97,7 @@ const AccountPage = () => {
     >
       
       {/* HEADER */}
-      <div style={{ width: '100%', maxWidth: '1100px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '50px' }}>
+      <div style={{ width: '100%', maxWidth: '1100px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '50px' }}>
         {/* Update text color so it remains visible in light mode */}
         <h1 className="login-logo" style={{ margin: 0, color: isDark ? '#ffffff' : '#1a1625' }}>
           Account<span style={{color: '#ff9f43'}}>REC</span>

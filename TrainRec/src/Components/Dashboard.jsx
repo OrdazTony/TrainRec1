@@ -152,7 +152,7 @@ const Dashboard = () => {
     Strong: { gradient: "linear-gradient(135deg, #ef4444 0%, #fb923c 100%)", color: "#ef4444" },
     Tired: { gradient: "linear-gradient(135deg, #64748b 0%, #94a3b8 100%)", color: "#64748b" },
     Focused: { gradient: "linear-gradient(135deg, #4f46e5 0%, #818cf8 100%)", color: "#4f46e5" },
-    Energized: { gradient: "linear-gradient(135deg, #7c4dff 0%, #a855f7 100%)", color: "#8b5cf6" },
+    Energized: { gradient: "linear-gradient(135deg, #ff7a18 0%, #ff9f43 100%)", color: "#ff9f43" },
   };
 
   const calorieProgress = dailyGoal > 0 ? Math.min((caloriesBurned / dailyGoal) * 100, 100) : 0;
@@ -224,7 +224,7 @@ const Dashboard = () => {
                 overflow: "hidden",
                 position: "relative",
                 borderRadius: 4,
-                background: calorieGradient,
+                background: "linear-gradient(135deg, #7c4dff 0%, #a855f7 100%)",
                 color: "#fff",
                 boxShadow: `0 20px 35px ${alpha("#000", 0.28)}`,
               }}
@@ -333,15 +333,15 @@ const Dashboard = () => {
             </Card>
 
             {/* Top metric boxes */}
-            <Grid container spacing={3}>
+            <Grid container spacing={3} sx={{ order: { xs: 3, sm: 0 } }}>
               <Grid size={{ xs: 12, md: 4 }}>
                 <MetricCard
-                  title="Mood"
-                  value={selectedMood}
-                  subtitle="Daily check-in"
-                  caption="Check-in"
-                  Icon={PsychologyRoundedIcon}
-                  gradient="linear-gradient(135deg, #7c4dff 0%, #a855f7 100%)"
+                  title="Calories Eaten"
+                  value={`${caloriesIngested} kcal`}
+                  subtitle={`Goal: ${calorieIntakeGoal} kcal`}
+                  caption="Intake"
+                  Icon={RestaurantRoundedIcon}
+                  gradient="linear-gradient(135deg, #22c55e 0%, #4ade80 100%)"
                 />
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
@@ -367,7 +367,7 @@ const Dashboard = () => {
             </Grid>
 
             {/* Goal progress — concentric rings */}
-            <Card sx={{ ...sectionCard, p: { xs: 2, md: 3 } }}>
+            <Card sx={{ ...sectionCard, p: { xs: 2, md: 3 }, order: { xs: 2, sm: 0 } }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={4} alignItems="center" justifyContent="space-between">
                 {/* Rings */}
                 <Box sx={{ position: 'relative', width: 220, height: 220, flexShrink: 0 }}>

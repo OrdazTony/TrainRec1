@@ -19,8 +19,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { colorModeContext } from '../themes';
 import API_BASE from '../config';
 
-const pages = ['Dashboard', 'Workouts', 'Weather', 'GymLocator'];
-const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
+const pages = ['Dashboard', 'Workouts', 'Progress', 'Weather', 'GymLocator'];
+const settings = ['Profile', 'Dashboard', 'Logout'];
 
 function GradientRadioIcon({ startColor, endColor, ...props }) {
   const gradientId = React.useId();
@@ -101,8 +101,6 @@ React.useEffect(() => {
       navigate('/login');
     } else if (setting === 'Profile') {
       navigate('/profile');
-    } else if (setting === 'Account') {
-      navigate('/account');
     } else if (setting === 'Dashboard') {
       navigate('/');
     }
@@ -116,17 +114,19 @@ React.useEffect(() => {
           <GradientRadioIcon
             startColor={gradientStart}
             endColor={gradientEnd}
+            onClick={() => navigate('/')}
             sx={{
               display: { xs: 'none', md: 'flex' },
               mr: 1,
               fontSize: '4rem',
+              cursor: 'pointer',
             }}
           />
           <Typography
             variant="h6"
             noWrap
-            component="a"
-            href="#app-bar-with-responsive-menu"
+            component={Link}
+            to="/"
             sx={{
               mr: 2,
               display: { xs: 'none', md: 'flex' },
@@ -185,16 +185,18 @@ React.useEffect(() => {
           <GradientRadioIcon
             startColor={gradientStart}
             endColor={gradientEnd}
+            onClick={() => navigate('/')}
             sx={{
               display: { xs: 'flex', md: 'none' },
               mr: 0.5,
               fontSize: '4rem',
+              cursor: 'pointer',
             }}
           />
           <Typography
             variant="h5"
-            component="a"
-            href="#app-bar-with-responsive-menu"
+            component={Link}
+            to="/"
             sx={{
               mr: 0,
               display: { xs: 'flex', md: 'none' },
