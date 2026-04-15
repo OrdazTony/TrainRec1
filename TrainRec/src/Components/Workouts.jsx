@@ -16,6 +16,7 @@ import {
   ToggleButtonGroup,
   LinearProgress,
 } from '@mui/material';
+//
 import SearchIcon from '@mui/icons-material/Search';
 import TimerIcon from '@mui/icons-material/Timer';
 import PoseTrainer from './PoseTrainer';
