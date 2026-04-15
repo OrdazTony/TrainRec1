@@ -25,10 +25,40 @@ import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 
 const CHECKLIST_KEY = 'trainrec_checklist';
+const INTAKE_LOG_KEY = 'trainrec_intake_log';
+
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function loadChecklist() {
   try { return JSON.parse(localStorage.getItem(CHECKLIST_KEY) || '[]'); }
   catch { return []; }
+}
+
+function loadDailyIntake() {
+  try {
+    const today = getTodayKey();
+    const saved = JSON.parse(localStorage.getItem(INTAKE_LOG_KEY) || 'null');
+    if (saved && saved.date === today) {
+      return {
+        calories: Number(saved.calories) || 0,
+        meals: Array.isArray(saved.meals) ? saved.meals : [],
+      };
+    }
+  } catch {
+    // ignore malformed local storage
+  }
+
+  return { calories: 0, meals: [] };
+}
+
+function saveDailyIntake(calories, meals) {
+  localStorage.setItem(INTAKE_LOG_KEY, JSON.stringify({
+    date: getTodayKey(),
+    calories,
+    meals,
+  }));
 }
 
 // legacy static options kept for fallback
@@ -39,12 +69,6 @@ const moodOptions = [
   { label: "Tired", value: "Tired", Icon: HotelRoundedIcon },
   { label: "Focused", value: "Focused", Icon: PsychologyRoundedIcon },
   { label: "Energized", value: "Energized", Icon: BoltRoundedIcon },
-];
-
-const activityRows = [
-  { food: "Burrito Bowl", meal: "Recovery meal", calories: "310 kcal", time: "01:00 PM", carbs: "20 g" },
-  { food: "Greek Yogurt", meal: "Protein snack", calories: "180 kcal", time: "04:30 PM", carbs: "12 g" },
-  { food: "Salmon Rice", meal: "Dinner prep", calories: "420 kcal", time: "07:00 PM", carbs: "28 g" },
 ];
 
 const MetricCard = ({ title, value, subtitle, caption, Icon, gradient }) => (
@@ -116,13 +140,10 @@ const Dashboard = () => {
     setThoughts(text);
   };
   const calorieIntakeGoal = 1500;
-  const [caloriesIngested, setCaloriesIngested] = useState(() => {
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const log = JSON.parse(localStorage.getItem('trainrec_intake_log') || 'null');
-      return (log && log.date === today) ? log.calories : 0;
-    } catch { return 0; }
-  });
+  const [caloriesIngested, setCaloriesIngested] = useState(() => loadDailyIntake().calories);
+  const [mealEntries, setMealEntries] = useState(() => loadDailyIntake().meals);
+  const [mealName, setMealName] = useState('');
+  const [mealCalories, setMealCalories] = useState('');
 
   // Re-read localStorage whenever the tab gains focus (user returns from Workouts page)
   useEffect(() => {
@@ -131,6 +152,9 @@ const Dashboard = () => {
         const today = new Date().toISOString().slice(0, 10);
         const log = JSON.parse(localStorage.getItem('trainrec_daily_log') || 'null');
         if (log && log.date === today) setCaloriesBurned(log.totalCalories);
+        const intake = loadDailyIntake();
+        setCaloriesIngested(intake.calories);
+        setMealEntries(intake.meals);
         const cl = loadChecklist();
         setWorkoutOptions(cl);
         setCompletedWorkouts(cl.filter((w) => w.done).map((w) => w.name));
@@ -191,6 +215,43 @@ const Dashboard = () => {
   const calorieGradient = "linear-gradient(135deg, #ff7a18 0%, #ff9f43 100%)";
 
   const softText = { color: "text.secondary" };
+
+  const addMealEntry = () => {
+    const trimmedName = mealName.trim();
+    const parsedCalories = Number(mealCalories);
+
+    if (!trimmedName || !Number.isFinite(parsedCalories) || parsedCalories <= 0) return;
+
+    const nextMeal = {
+      id: `${Date.now()}`,
+      name: trimmedName,
+      calories: Math.round(parsedCalories),
+      time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    };
+
+    const nextMeals = [nextMeal, ...mealEntries];
+    const nextCalories = nextMeals.reduce((sum, meal) => sum + meal.calories, 0);
+
+    setMealEntries(nextMeals);
+    setCaloriesIngested(nextCalories);
+    saveDailyIntake(nextCalories, nextMeals);
+    setMealName('');
+    setMealCalories('');
+  };
+
+  const removeMealEntry = (mealId) => {
+    const nextMeals = mealEntries.filter((meal) => meal.id !== mealId);
+    const nextCalories = nextMeals.reduce((sum, meal) => sum + meal.calories, 0);
+    setMealEntries(nextMeals);
+    setCaloriesIngested(nextCalories);
+    saveDailyIntake(nextCalories, nextMeals);
+  };
+
+  const resetMealTracking = () => {
+    setMealEntries([]);
+    setCaloriesIngested(0);
+    saveDailyIntake(0, []);
+  };
 
   const toggleWorkout = (workoutName) => {
     setCompletedWorkouts((prev) => {
@@ -299,9 +360,9 @@ const Dashboard = () => {
                       maxWidth: 280,
                       p: 2.5,
                       borderRadius: 4,
-                      bgcolor: alpha("#fff", 0.14),
+                      bgcolor: alpha("#14b8a6", 0.3),
                       backdropFilter: "blur(10px)",
-                      boxShadow: `0 8px 32px ${alpha("#000", 0.55)}`,
+                      boxShadow: `0 8px 32px ${alpha("#0f766e", 0.45)}`,
                     }}
                   >
                     <Typography variant="caption" sx={{ color: alpha("#fff", 0.78), fontWeight: 700, display: 'block', mb: 1 }}>
@@ -346,10 +407,10 @@ const Dashboard = () => {
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
                 <MetricCard
-                  title="Calories"
+                  title="Calories Burned"
                   value={`${caloriesBurned} kcal`}
                   subtitle={`${Math.max(dailyGoal - caloriesBurned, 0)} kcal left today`}
-                  caption="Burn tracker"
+                  caption="Calories burned"
                   Icon={LocalFireDepartmentRoundedIcon}
                   gradient={calorieGradient}
                 />
@@ -370,40 +431,46 @@ const Dashboard = () => {
             <Card sx={{ ...sectionCard, p: { xs: 2, md: 3 }, order: { xs: 2, sm: 0 } }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={4} alignItems="center" justifyContent="space-between">
                 {/* Rings */}
-                <Box sx={{ position: 'relative', width: 220, height: 220, flexShrink: 0 }}>
-                  <svg width={220} height={220}>
-                    {[
-                      { r: 94, sw: 14, color: '#ff9f43', track: alpha('#ff9f43', 0.15), progress: calorieProgress },
-                      { r: 68, sw: 14, color: '#9b6bff', track: alpha('#9b6bff', 0.15), progress: workoutProgress },
-                      { r: 42, sw: 14, color: '#22c55e', track: alpha('#22c55e', 0.15), progress: intakeProgress },
-                    ].map(({ r, sw, color, track, progress }) => {
-                      const circ = 2 * Math.PI * r;
-                      const offset = circ * (1 - Math.min(progress, 100) / 100);
-                      return (
-                        <g key={r}>
-                          <circle cx={110} cy={110} r={r} fill="none" stroke={track} strokeWidth={sw} />
-                          <circle
-                            cx={110} cy={110} r={r}
-                            fill="none"
-                            stroke={color}
-                            strokeWidth={sw}
-                            strokeDasharray={circ}
-                            strokeDashoffset={offset}
-                            strokeLinecap="round"
-                            transform="rotate(-90 110 110)"
-                            style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-                          />
-                        </g>
-                      );
-                    })}
-                  </svg>
-                  <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1 }}>
-                      {Math.round((calorieProgress + workoutProgress + intakeProgress) / 3)}%
-                    </Typography>
-                    <Typography variant="caption" sx={softText}>overall</Typography>
+                <Stack spacing={2} sx={{ alignItems: 'center', flexShrink: 0 }}>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800 }}>Daily Activity Rings</Typography>
+                    <Typography variant="body2" sx={softText}>Burned, workouts, and intake at a glance.</Typography>
                   </Box>
-                </Box>
+                  <Box sx={{ position: 'relative', width: 220, height: 220 }}>
+                    <svg width={220} height={220}>
+                      {[
+                        { r: 94, sw: 14, color: '#ff9f43', track: alpha('#ff9f43', 0.15), progress: calorieProgress },
+                        { r: 68, sw: 14, color: '#9b6bff', track: alpha('#9b6bff', 0.15), progress: workoutProgress },
+                        { r: 42, sw: 14, color: '#22c55e', track: alpha('#22c55e', 0.15), progress: intakeProgress },
+                      ].map(({ r, sw, color, track, progress }) => {
+                        const circ = 2 * Math.PI * r;
+                        const offset = circ * (1 - Math.min(progress, 100) / 100);
+                        return (
+                          <g key={r}>
+                            <circle cx={110} cy={110} r={r} fill="none" stroke={track} strokeWidth={sw} />
+                            <circle
+                              cx={110} cy={110} r={r}
+                              fill="none"
+                              stroke={color}
+                              strokeWidth={sw}
+                              strokeDasharray={circ}
+                              strokeDashoffset={offset}
+                              strokeLinecap="round"
+                              transform="rotate(-90 110 110)"
+                              style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                            />
+                          </g>
+                        );
+                      })}
+                    </svg>
+                    <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                      <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1 }}>
+                        {Math.round((calorieProgress + workoutProgress + intakeProgress) / 3)}%
+                      </Typography>
+                      <Typography variant="caption" sx={softText}>overall</Typography>
+                    </Box>
+                  </Box>
+                </Stack>
 
                 {/* Legend + actions */}
                 <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
@@ -421,12 +488,87 @@ const Dashboard = () => {
                     ))}
                   </Stack>
 
-                  <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ rowGap: 1 }}>
-                    <Button size="small" variant="outlined" onClick={() => setCaloriesIngested((p) => Math.min(p + 100, calorieIntakeGoal * 2))} sx={{ borderRadius: 3, fontSize: '0.7rem' }}>+100 kcal eaten</Button>
-                    <Button size="small" variant="outlined" color="error" onClick={() => setCaloriesIngested(0)} sx={{ borderRadius: 3, fontSize: '0.7rem' }}>Reset intake</Button>
-                  </Stack>
                 </Stack>
               </Stack>
+            </Card>
+
+            <Card sx={{ ...sectionCard, p: { xs: 2, md: 3 } }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1.5} sx={{ mb: 2.5 }}>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>Calorie Meal Tracking</Typography>
+                  <Typography variant="body2" sx={softText}>Add meals with estimated calories to sync with Calories Eaten.</Typography>
+                </Box>
+                <Chip
+                  label={`${caloriesIngested} kcal today`}
+                  sx={{ bgcolor: alpha('#22c55e', 0.14), color: '#15803d', fontWeight: 700 }}
+                />
+              </Stack>
+
+              <Grid container spacing={1.5} sx={{ mb: 2 }}>
+                <Grid size={{ xs: 12, md: 7 }}>
+                  <TextField
+                    fullWidth
+                    label="Meal"
+                    placeholder="Chicken sandwich, protein shake, salad..."
+                    value={mealName}
+                    onChange={(e) => setMealName(e.target.value)}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 5 }}>
+                  <TextField
+                    fullWidth
+                    label="Estimated calories"
+                    type="number"
+                    value={mealCalories}
+                    onChange={(e) => setMealCalories(e.target.value)}
+                    inputProps={{ min: 0 }}
+                  />
+                </Grid>
+              </Grid>
+
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2.5 }}>
+                <Button variant="contained" onClick={addMealEntry} sx={{ borderRadius: 3, fontWeight: 700 }}>
+                  Add meal
+                </Button>
+                <Button variant="outlined" color="error" onClick={resetMealTracking} sx={{ borderRadius: 3, fontWeight: 700 }}>
+                  Reset meals
+                </Button>
+              </Stack>
+
+              {mealEntries.length === 0 ? (
+                <Typography variant="body2" sx={{ ...softText, textAlign: 'center', py: 2 }}>
+                  No meals logged yet. Add your first meal to update Calories Eaten.
+                </Typography>
+              ) : (
+                <Stack spacing={1.2}>
+                  {mealEntries.map((meal) => (
+                    <Box
+                      key={meal.id}
+                      sx={{
+                        p: 1.4,
+                        borderRadius: 3,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 1.5,
+                        bgcolor: alpha('#22c55e', 0.07),
+                        border: `1px solid ${alpha('#22c55e', 0.14)}`,
+                      }}
+                    >
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 700 }}>{meal.name}</Typography>
+                        <Typography variant="caption" sx={softText}>{meal.time}</Typography>
+                      </Box>
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+                        <Chip label={`${meal.calories} kcal`} size="small" sx={{ fontWeight: 700 }} />
+                        <Button size="small" color="error" onClick={() => removeMealEntry(meal.id)} sx={{ minWidth: 0, px: 1.2 }}>
+                          Remove
+                        </Button>
+                      </Stack>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
             </Card>
 
 
