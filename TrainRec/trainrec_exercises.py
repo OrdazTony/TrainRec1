@@ -74,9 +74,11 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY, email TEXT UNIQUE, name TEXT, nickname TEXT,
             password_hash TEXT, sex TEXT, birthdate TEXT, height_in REAL,
-            weight_lb REAL, fitness_activity TEXT, profile_pic TEXT, created_at TEXT
+            weight_lb REAL, fitness_activity TEXT, profile_pic TEXT, created_at TEXT,
+            confidence_level INTEGER DEFAULT 72
         )
     """)
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS confidence_level INTEGER DEFAULT 72")
     c.execute("""
         CREATE TABLE IF NOT EXISTS goals (
             id SERIAL PRIMARY KEY, user_id INTEGER, goal_text TEXT, created_at TEXT
@@ -307,7 +309,7 @@ def delete_goal(goal_id):
 @auth_required
 def get_full_profile():
     user = run_query(
-        "SELECT name, email, nickname, sex, birthdate, height_in, weight_lb, fitness_activity, profile_pic FROM users WHERE id = %s",
+        "SELECT name, email, nickname, sex, birthdate, height_in, weight_lb, fitness_activity, profile_pic, confidence_level FROM users WHERE id = %s",
         (request.user_id,), one=True
     )
     goals_rows = run_query(
@@ -324,11 +326,30 @@ def get_full_profile():
     )
     if user:
         res = dict(user)
+        res["confidence_level"] = max(0, min(int(res.get("confidence_level") or 72), 100))
         res["goals"] = [{"id": row["id"], "text": row["goal_text"]} for row in goals_rows]
         res["total_calories"] = total_cal["total"] or 0
         res["history"] = [dict(row) for row in history]
         return jsonify(res)
     return jsonify({"error": "User not found"}), 404
+
+@app.route("/me/confidence", methods=["POST"])
+@auth_required
+def save_confidence_level():
+    payload = request.get_json() or {}
+    raw_level = payload.get("confidence_level")
+
+    try:
+        confidence_level = int(raw_level)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Confidence level must be a number"}), 400
+
+    confidence_level = max(0, min(confidence_level, 100))
+    run_write(
+        "UPDATE users SET confidence_level = %s WHERE id = %s",
+        (confidence_level, request.user_id)
+    )
+    return jsonify({"message": "Confidence saved", "confidence_level": confidence_level}), 200
 
 @app.route("/api/workouts/complete", methods=["POST"])
 @auth_required

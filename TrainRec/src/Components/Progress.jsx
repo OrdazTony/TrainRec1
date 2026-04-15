@@ -6,6 +6,7 @@ import {
   Checkbox,
   Container,
   Grid,
+  Slider,
   Stack,
   Typography,
 } from "@mui/material";
@@ -25,6 +26,7 @@ const CHECKLIST_KEY      = "trainrec_checklist";
 const DAILY_LOG_KEY      = "trainrec_daily_log";
 const INTAKE_LOG_KEY     = "trainrec_intake_log";
 const WEEKLY_HISTORY_KEY = "trainrec_weekly_progress_history";
+const CONFIDENCE_KEY     = "trainrec_confidence_level";
 
 // ── Goals: daily-reset storage ────────────────────────────────────────────────
 const DAILY_GOAL_KEY = "trainrec_daily_goal_progress"; // {date, ids:[]}
@@ -46,6 +48,14 @@ function saveCompletedGoals(ids) {
 function loadChecklist() {
   try { return JSON.parse(localStorage.getItem(CHECKLIST_KEY) || "[]"); }
   catch { return []; }
+}
+
+function loadConfidenceLevel() {
+  try {
+    return clampProgress(JSON.parse(localStorage.getItem(CONFIDENCE_KEY) || "72"));
+  } catch {
+    return 72;
+  }
 }
 
 function clampProgress(value) {
@@ -178,15 +188,21 @@ const Progress = () => {
   const [goals, setGoals]                         = useState([]);
   const [completedGoalIds, setCompletedGoalIds]   = useState(() => loadCompletedGoals());
   const [weeklyHistory, setWeeklyHistory]         = useState(() => loadWeeklyHistory());
+  const [confidenceLevel, setConfidenceLevel]     = useState(() => loadConfidenceLevel());
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) { navigate("/login"); return; }
     fetch(`${API_BASE}/me/full_profile`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => setGoals(d.goals || []))
+      .then((d) => {
+        setGoals(d.goals || []);
+        if (typeof d.confidence_level === "number") {
+          setConfidenceLevel(clampProgress(d.confidence_level));
+        }
+      })
       .catch(() => {});
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     const onFocus = () => {
@@ -247,6 +263,28 @@ const Progress = () => {
     });
   }, [todaySnapshot]);
 
+  useEffect(() => {
+    localStorage.setItem(CONFIDENCE_KEY, JSON.stringify(clampProgress(confidenceLevel)));
+  }, [confidenceLevel]);
+
+  const saveConfidenceLevel = async (nextLevel) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      await fetch(`${API_BASE}/me/confidence`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ confidence_level: clampProgress(nextLevel) }),
+      });
+    } catch {
+      // Local storage still preserves the latest slider state if the request fails.
+    }
+  };
+
   const weeklyData = useMemo(() => {
     const historyMap = new Map(weeklyHistory.map((entry) => [entry.date, entry]));
     return getWeekDates().map(({ dateKey, day, label }) => {
@@ -278,6 +316,12 @@ const Progress = () => {
     if (recordedDays.length === 0) return null;
     return recordedDays.reduce((best, entry) => (entry.score > best.score ? entry : best), recordedDays[0]);
   }, [recordedDays]);
+
+  const confidenceTone = useMemo(() => {
+    if (confidenceLevel >= 80) return { label: "Locked in", color: "#22c55e" };
+    if (confidenceLevel >= 55) return { label: "Building momentum", color: "#36b7d7" };
+    return { label: "Take it steady", color: "#ff9f43" };
+  }, [confidenceLevel]);
 
   const sectionCard = {
     borderRadius: 5,
@@ -556,6 +600,53 @@ const Progress = () => {
                     })}
                   </Stack>
                 )}
+              </Card>
+
+              <Card sx={{ ...sectionCard, p: { xs: 2, md: 2.5 } }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1.5} sx={{ mb: 2 }}>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 800 }}>Confidence Level</Typography>
+                    <Typography variant="body2" sx={softText}>Adjust how ready you feel today.</Typography>
+                  </Box>
+                  <Chip
+                    label={`${confidenceLevel}%`}
+                    sx={{ bgcolor: alpha(confidenceTone.color, 0.14), color: confidenceTone.color, fontWeight: 700 }}
+                  />
+                </Stack>
+
+                <Box sx={{ px: 0.5 }}>
+                  <Slider
+                    value={confidenceLevel}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onChange={(_, value) => setConfidenceLevel(Array.isArray(value) ? value[0] : value)}
+                    onChangeCommitted={(_, value) => saveConfidenceLevel(Array.isArray(value) ? value[0] : value)}
+                    aria-label="Confidence level"
+                    sx={{
+                      color: confidenceTone.color,
+                      height: 7,
+                      "& .MuiSlider-thumb": {
+                        width: 18,
+                        height: 18,
+                        boxShadow: `0 0 0 6px ${alpha(confidenceTone.color, 0.14)}`,
+                      },
+                      "& .MuiSlider-track": {
+                        border: "none",
+                      },
+                      "& .MuiSlider-rail": {
+                        opacity: 1,
+                        bgcolor: alpha(confidenceTone.color, 0.16),
+                      },
+                    }}
+                  />
+                </Box>
+
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
+                  <Typography variant="caption" sx={softText}>Low</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: confidenceTone.color }}>{confidenceTone.label}</Typography>
+                  <Typography variant="caption" sx={softText}>High</Typography>
+                </Stack>
               </Card>
 
             </Stack>
