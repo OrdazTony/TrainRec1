@@ -18,7 +18,7 @@ import { useTheme } from '@mui/material/styles';
 import { Link, useNavigate } from 'react-router-dom';
 import { colorModeContext } from '../themes';
 
-const pages = ['Dashboard', 'Workouts', 'Progress', 'Weather', 'GymLocator'];
+const pages = ['Dashboard', 'Workouts', 'Weather', 'GymLocator'];
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
 
 function GradientRadioIcon({ startColor, endColor, ...props }) {

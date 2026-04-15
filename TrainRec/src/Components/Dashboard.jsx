@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Avatar,
   Box,
@@ -8,10 +8,8 @@ import {
   Chip,
   Container,
   Grid,
-  LinearProgress,
-  MenuItem,
-  Select,
   Stack,
+  TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
@@ -26,7 +24,14 @@ import PsychologyRoundedIcon from "@mui/icons-material/PsychologyRounded";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 
-const workoutOptions = ["Warm-up", "Upper Body", "Core Session", "Cooldown Stretch"];
+const CHECKLIST_KEY = 'trainrec_checklist';
+
+function loadChecklist() {
+  try { return JSON.parse(localStorage.getItem(CHECKLIST_KEY) || '[]'); }
+  catch { return []; }
+}
+
+// legacy static options kept for fallback
 const workoutDurations = ["8 min", "20 min", "15 min", "10 min"];
 const moodOptions = [
   { label: "Calm", value: "Calm", Icon: SelfImprovementRoundedIcon },
@@ -50,7 +55,7 @@ const MetricCard = ({ title, value, subtitle, caption, Icon, gradient }) => (
       borderRadius: 4,
       color: "#fff",
       background: gradient,
-      boxShadow: `0 20px 35px ${alpha("#000", 0.12)}`,
+      boxShadow: `0 20px 35px ${alpha("#000", 0.28)}`,
     }}
   >
     <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
@@ -84,10 +89,56 @@ const MetricCard = ({ title, value, subtitle, caption, Icon, gradient }) => (
 const Dashboard = () => {
   const theme = useTheme();
   const dailyGoal = 500;
-  const [caloriesBurned, setCaloriesBurned] = useState(280);
-  const [completedWorkouts, setCompletedWorkouts] = useState(["Warm-up"]);
-  const [selectedMood, setSelectedMood] = useState("Energized");
-  const [timeframe, setTimeframe] = useState("Weekly");
+  const [caloriesBurned, setCaloriesBurned] = useState(() => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const log = JSON.parse(localStorage.getItem('trainrec_daily_log') || 'null');
+      return (log && log.date === today) ? log.totalCalories : 0;
+    } catch { return 0; }
+  });
+  const [workoutOptions, setWorkoutOptions] = useState(() => loadChecklist());
+  const [completedWorkouts, setCompletedWorkouts] = useState(
+    () => loadChecklist().filter((w) => w.done).map((w) => w.name)
+  );
+  const [selectedMood, setSelectedMood] = useState(null);
+  const THOUGHTS_KEY = 'trainrec_daily_thoughts';
+  const [thoughts, setThoughts] = useState(() => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const saved = JSON.parse(localStorage.getItem(THOUGHTS_KEY) || 'null');
+      return (saved && saved.date === today) ? saved.text : '';
+    } catch { return ''; }
+  });
+
+  const saveThoughts = (text) => {
+    const today = new Date().toISOString().slice(0, 10);
+    localStorage.setItem(THOUGHTS_KEY, JSON.stringify({ date: today, text }));
+    setThoughts(text);
+  };
+  const calorieIntakeGoal = 1500;
+  const [caloriesIngested, setCaloriesIngested] = useState(() => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const log = JSON.parse(localStorage.getItem('trainrec_intake_log') || 'null');
+      return (log && log.date === today) ? log.calories : 0;
+    } catch { return 0; }
+  });
+
+  // Re-read localStorage whenever the tab gains focus (user returns from Workouts page)
+  useEffect(() => {
+    const onFocus = () => {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const log = JSON.parse(localStorage.getItem('trainrec_daily_log') || 'null');
+        if (log && log.date === today) setCaloriesBurned(log.totalCalories);
+        const cl = loadChecklist();
+        setWorkoutOptions(cl);
+        setCompletedWorkouts(cl.filter((w) => w.done).map((w) => w.name));
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   const moodScores = {
     Calm: 66,
@@ -104,8 +155,9 @@ const Dashboard = () => {
     Energized: { gradient: "linear-gradient(135deg, #7c4dff 0%, #a855f7 100%)", color: "#8b5cf6" },
   };
 
-  const calorieProgress = Math.min((caloriesBurned / dailyGoal) * 100, 100);
-  const workoutProgress = (completedWorkouts.length / workoutOptions.length) * 100;
+  const calorieProgress = dailyGoal > 0 ? Math.min((caloriesBurned / dailyGoal) * 100, 100) : 0;
+  const intakeProgress = calorieIntakeGoal > 0 ? Math.min((caloriesIngested / calorieIntakeGoal) * 100, 100) : 0;
+  const workoutProgress = workoutOptions.length > 0 ? (completedWorkouts.length / workoutOptions.length) * 100 : 0;
   const energyScore = moodScores[selectedMood] ?? 70;
   const activeMoodStyle = moodStyles[selectedMood] ?? moodStyles.Energized;
 
@@ -122,13 +174,15 @@ const Dashboard = () => {
     [calorieProgress, energyScore, workoutProgress]
   );
 
+
+
   const sectionCard = {
     borderRadius: 5,
     border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}`,
     boxShadow:
       theme.palette.mode === "dark"
-        ? `0 18px 40px ${alpha("#000", 0.28)}`
-        : `0 18px 40px ${alpha(theme.palette.primary.main, 0.08)}`,
+        ? `0 18px 40px ${alpha("#000", 0.45)}`
+        : `0 18px 40px ${alpha(theme.palette.primary.main, 0.22)}`,
     background:
       theme.palette.mode === "dark"
         ? `linear-gradient(180deg, ${alpha(theme.palette.background.paper, 0.96)} 0%, ${alpha(theme.palette.primary.dark, 0.4)} 100%)`
@@ -138,10 +192,24 @@ const Dashboard = () => {
 
   const softText = { color: "text.secondary" };
 
-  const toggleWorkout = (workout) => {
-    setCompletedWorkouts((prev) =>
-      prev.includes(workout) ? prev.filter((item) => item !== workout) : [...prev, workout]
-    );
+  const toggleWorkout = (workoutName) => {
+    setCompletedWorkouts((prev) => {
+      const next = prev.includes(workoutName)
+        ? prev.filter((n) => n !== workoutName)
+        : [...prev, workoutName];
+      const cl = loadChecklist().map((w) =>
+        w.name === workoutName ? { ...w, done: next.includes(workoutName) } : w
+      );
+      localStorage.setItem(CHECKLIST_KEY, JSON.stringify(cl));
+      return next;
+    });
+  };
+
+  const removeFromChecklist = (workout) => {
+    const next = workoutOptions.filter((w) => w.name !== workout.name);
+    localStorage.setItem(CHECKLIST_KEY, JSON.stringify(next));
+    setWorkoutOptions(next);
+    setCompletedWorkouts((prev) => prev.filter((n) => n !== workout.name));
   };
 
   return (
@@ -158,7 +226,7 @@ const Dashboard = () => {
                 borderRadius: 4,
                 background: calorieGradient,
                 color: "#fff",
-                boxShadow: `0 20px 35px ${alpha("#000", 0.12)}`,
+                boxShadow: `0 20px 35px ${alpha("#000", 0.28)}`,
               }}
             >
               {/* Decorative background accents */}
@@ -224,7 +292,7 @@ const Dashboard = () => {
                 </Grid>
 
                 <Grid size={{ xs: 12, md: 5 }}>
-                  {/* Quick daily summary box */}
+                  {/* Daily thoughts box */}
                   <Box
                     sx={{
                       ml: { md: "auto" },
@@ -233,36 +301,32 @@ const Dashboard = () => {
                       borderRadius: 4,
                       bgcolor: alpha("#fff", 0.14),
                       backdropFilter: "blur(10px)",
+                      boxShadow: `0 8px 32px ${alpha("#000", 0.55)}`,
                     }}
                   >
-                    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
-                      <Avatar sx={{ bgcolor: alpha("#fff", 0.18), width: 52, height: 52 }}>
-                        <SelfImprovementRoundedIcon sx={{ color: "#fff" }} />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="caption" sx={{ color: alpha("#fff", 0.78) }}>
-                          Today&apos;s energy
-                        </Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                          {selectedMood}
-                        </Typography>
-                      </Box>
-                    </Stack>
-
-                    <Stack spacing={1.1}>
-                      <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2">Calories</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                          {caloriesBurned}/{dailyGoal}
-                        </Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2">Workouts done</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                          {completedWorkouts.length}/{workoutOptions.length}
-                        </Typography>
-                      </Stack>
-                    </Stack>
+                    <Typography variant="caption" sx={{ color: alpha("#fff", 0.78), fontWeight: 700, display: 'block', mb: 1 }}>
+                      Today&apos;s thoughts
+                    </Typography>
+                    <TextField
+                      multiline
+                      minRows={4}
+                      maxRows={6}
+                      fullWidth
+                      placeholder="What's on your mind today..."
+                      value={thoughts}
+                      onChange={(e) => saveThoughts(e.target.value)}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          bgcolor: alpha("#fff", 0.08),
+                          color: "#fff",
+                          '& fieldset': { borderColor: alpha("#fff", 0.25) },
+                          '&:hover fieldset': { borderColor: alpha("#fff", 0.5) },
+                          '&.Mui-focused fieldset': { borderColor: alpha("#fff", 0.7) },
+                        },
+                        '& .MuiInputBase-input::placeholder': { color: alpha("#fff", 0.5) },
+                      }}
+                    />
                   </Box>
                 </Grid>
               </Grid>
@@ -272,12 +336,12 @@ const Dashboard = () => {
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, md: 4 }}>
                 <MetricCard
-                  title="Workout"
-                  value={`${completedWorkouts.length} / ${workoutOptions.length}`}
-                  subtitle="sessions completed"
-                  caption="Daily plan"
-                  Icon={DirectionsRunRoundedIcon}
-                  gradient="linear-gradient(135deg, #36b7d7 0%, #4cc7e8 100%)"
+                  title="Mood"
+                  value={selectedMood}
+                  subtitle="Daily check-in"
+                  caption="Check-in"
+                  Icon={PsychologyRoundedIcon}
+                  gradient="linear-gradient(135deg, #7c4dff 0%, #a855f7 100%)"
                 />
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
@@ -292,88 +356,76 @@ const Dashboard = () => {
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
                 <MetricCard
-                  title="Mood"
-                  value={selectedMood}
-                  subtitle="Daily check-in"
-                  caption="Check-in"
-                  Icon={PsychologyRoundedIcon}
-                  gradient="linear-gradient(135deg, #7c4dff 0%, #a855f7 100%)"
+                  title="Workout"
+                  value={`${completedWorkouts.length} / ${workoutOptions.length}`}
+                  subtitle="sessions completed"
+                  caption="Daily plan"
+                  Icon={DirectionsRunRoundedIcon}
+                  gradient="linear-gradient(135deg, #36b7d7 0%, #4cc7e8 100%)"
                 />
               </Grid>
             </Grid>
 
-            {/* Goal progress chart box */}
+            {/* Goal progress — concentric rings */}
             <Card sx={{ ...sectionCard, p: { xs: 2, md: 3 } }}>
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                justifyContent="space-between"
-                alignItems={{ xs: "flex-start", sm: "center" }}
-                spacing={2}
-                sx={{ mb: 3 }}
-              >
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                    Goal Progress
-                  </Typography>
-                  <Typography variant="body2" sx={softText}>
-                    Weekly overview of training, calories, and energy.
-                  </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={4} alignItems="center" justifyContent="space-between">
+                {/* Rings */}
+                <Box sx={{ position: 'relative', width: 220, height: 220, flexShrink: 0 }}>
+                  <svg width={220} height={220}>
+                    {[
+                      { r: 94, sw: 14, color: '#ff9f43', track: alpha('#ff9f43', 0.15), progress: calorieProgress },
+                      { r: 68, sw: 14, color: '#9b6bff', track: alpha('#9b6bff', 0.15), progress: workoutProgress },
+                      { r: 42, sw: 14, color: '#22c55e', track: alpha('#22c55e', 0.15), progress: intakeProgress },
+                    ].map(({ r, sw, color, track, progress }) => {
+                      const circ = 2 * Math.PI * r;
+                      const offset = circ * (1 - Math.min(progress, 100) / 100);
+                      return (
+                        <g key={r}>
+                          <circle cx={110} cy={110} r={r} fill="none" stroke={track} strokeWidth={sw} />
+                          <circle
+                            cx={110} cy={110} r={r}
+                            fill="none"
+                            stroke={color}
+                            strokeWidth={sw}
+                            strokeDasharray={circ}
+                            strokeDashoffset={offset}
+                            strokeLinecap="round"
+                            transform="rotate(-90 110 110)"
+                            style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                          />
+                        </g>
+                      );
+                    })}
+                  </svg>
+                  <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1 }}>
+                      {Math.round((calorieProgress + workoutProgress + intakeProgress) / 3)}%
+                    </Typography>
+                    <Typography variant="caption" sx={softText}>overall</Typography>
+                  </Box>
                 </Box>
 
-                <Select
-                  size="small"
-                  value={timeframe}
-                  onChange={(event) => setTimeframe(event.target.value)}
-                  sx={{ minWidth: 110, borderRadius: 3 }}
-                >
-                  <MenuItem value="Weekly">Weekly</MenuItem>
-                  <MenuItem value="Monthly">Monthly</MenuItem>
-                </Select>
-              </Stack>
-
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-                  gap: { xs: 1, sm: 2 },
-                  alignItems: "end",
-                  minHeight: 220,
-                }}
-              >
-                {weeklyData.map((item) => (
-                  <Stack key={item.day} spacing={1} alignItems="center" justifyContent="flex-end">
-                    <Stack direction="row" spacing={0.7} alignItems="flex-end" sx={{ height: 170 }}>
-                      <Box sx={{ width: 8, height: `${item.workout}%`, borderRadius: 999, bgcolor: "#46c6e7" }} />
-                      <Box
-                        sx={{
-                          width: 8,
-                          height: `${item.calories}%`,
-                          borderRadius: 999,
-                          bgcolor: theme.palette.secondary.main,
-                        }}
-                      />
-                      <Box sx={{ width: 8, height: `${item.energy}%`, borderRadius: 999, bgcolor: "#9b6bff" }} />
-                    </Stack>
-                    <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>
-                      {item.day}
-                    </Typography>
+                {/* Legend + actions */}
+                <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
+                  <Stack spacing={1.2}>
+                    {[
+                      { color: '#ff9f43', label: 'Calories burned', value: `${caloriesBurned} / ${dailyGoal} kcal` },
+                      { color: '#9b6bff', label: 'Workouts', value: `${completedWorkouts.length} / ${workoutOptions.length} done` },
+                      { color: '#22c55e', label: 'Calories ingested', value: `${caloriesIngested} / ${calorieIntakeGoal} kcal` },
+                    ].map(({ color, label, value }) => (
+                      <Stack key={label} direction="row" alignItems="center" spacing={1}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
+                        <Typography variant="body2" sx={{ flex: 1, ...softText }}>{label}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{value}</Typography>
+                      </Stack>
+                    ))}
                   </Stack>
-                ))}
-              </Box>
 
-              <Stack direction="row" spacing={3} flexWrap="wrap" sx={{ mt: 2, rowGap: 1.2 }}>
-                {[
-                  { label: "Workout", color: "#46c6e7" },
-                  { label: "Calories", color: theme.palette.secondary.main },
-                  { label: "Mood", color: "#9b6bff" },
-                ].map((legend) => (
-                  <Stack key={legend.label} direction="row" spacing={1} alignItems="center">
-                    <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: legend.color }} />
-                    <Typography variant="caption" sx={softText}>
-                      {legend.label}
-                    </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ rowGap: 1 }}>
+                    <Button size="small" variant="outlined" onClick={() => setCaloriesIngested((p) => Math.min(p + 100, calorieIntakeGoal * 2))} sx={{ borderRadius: 3, fontSize: '0.7rem' }}>+100 kcal eaten</Button>
+                    <Button size="small" variant="outlined" color="error" onClick={() => setCaloriesIngested(0)} sx={{ borderRadius: 3, fontSize: '0.7rem' }}>Reset intake</Button>
                   </Stack>
-                ))}
+                </Stack>
               </Stack>
             </Card>
 
@@ -382,7 +434,7 @@ const Dashboard = () => {
         </Grid>
 
         <Grid size={{ xs: 12, lg: 4 }}>
-          <Stack spacing={3}>
+          <Stack spacing={3} sx={{ position: { lg: 'sticky' }, top: { lg: 80 } }}>
             {/* Sidebar mood selector box */}
             <Card
               sx={{
@@ -459,17 +511,22 @@ const Dashboard = () => {
                   </Typography>
                 </Box>
                 <Chip
-                  label={`${completedWorkouts.length} done`}
+                  label={`${completedWorkouts.length} / ${workoutOptions.length} done`}
                   sx={{ bgcolor: alpha(theme.palette.primary.main, 0.12), color: "primary.main", fontWeight: 700 }}
                 />
               </Stack>
 
-              <Stack spacing={1.2}>
-                {workoutOptions.map((workout, index) => {
-                  const isComplete = completedWorkouts.includes(workout);
+              {workoutOptions.length === 0 ? (
+                <Typography variant="body2" sx={{ ...softText, textAlign: 'center', py: 3 }}>
+                  No workouts added yet. Go to Workouts and add some!
+                </Typography>
+              ) : (
+              <Stack spacing={1.2} sx={{ maxHeight: 375, overflowY: 'auto', pr: 0.5 }}>
+                {workoutOptions.map((workout) => {
+                  const isComplete = completedWorkouts.includes(workout.name);
                   return (
                     <Box
-                      key={`sidebar-${workout}`}
+                      key={`sidebar-${workout.id}`}
                       sx={{
                         display: "flex",
                         alignItems: "center",
@@ -485,29 +542,39 @@ const Dashboard = () => {
                       <Stack direction="row" spacing={1} alignItems="center">
                         <Checkbox
                           checked={isComplete}
-                          onChange={() => toggleWorkout(workout)}
+                          onChange={() => toggleWorkout(workout.name)}
                           sx={{
                             color: "secondary.main",
                             "&.Mui-checked": { color: "secondary.main" },
                           }}
                         />
                         <Box>
-                          <Typography sx={{ fontWeight: 700 }}>{workout}</Typography>
+                          <Typography sx={{ fontWeight: 700 }}>{workout.name}</Typography>
                           <Typography variant="caption" sx={softText}>
-                            {workoutDurations[index]}
+                            {workout.category}
                           </Typography>
                         </Box>
                       </Stack>
-                      <Chip
-                        label={isComplete ? "Done" : "Pending"}
-                        color={isComplete ? "success" : "default"}
-                        variant={isComplete ? "filled" : "outlined"}
-                        size="small"
-                      />
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Chip
+                          label={isComplete ? "Done" : "Pending"}
+                          color={isComplete ? "success" : "default"}
+                          variant={isComplete ? "filled" : "outlined"}
+                          size="small"
+                        />
+                        <Chip
+                          label="✕"
+                          size="small"
+                          variant="outlined"
+                          onClick={() => removeFromChecklist(workout)}
+                          sx={{ cursor: 'pointer', minWidth: 0, px: 0.5 }}
+                        />
+                      </Stack>
                     </Box>
                   );
                 })}
               </Stack>
+              )}
             </Card>
 
           </Stack>

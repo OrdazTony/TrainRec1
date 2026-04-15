@@ -1,6 +1,4 @@
-
-
-from flask import Flask, jsonify, request, g  
+from flask import Flask, jsonify, request, g
 from flask_cors import CORS
 import json # Used for saving and loading session metadata and landmarks in JSON format.
 import os # Used for file system operations like creating directories and saving files.
@@ -88,6 +86,7 @@ EXERCISES = [
     {"id": "diamond_pushups", "name": "Diamond Push-ups", "category": "Upper Body", "difficulty": "Advanced", "type": "reps", "target": 10, "icon": "handyman", "description": "Tricep-focused push-ups.", "steps": ["Hands in diamond shape", "Keep elbows in"]},
     {"id": "pike_pushups", "name": "Pike Push-ups", "category": "Upper Body", "difficulty": "Intermediate", "type": "reps", "target": 10, "icon": "architecture", "description": "Shoulder-focused push-up.", "steps": ["Hips high in V-shape", "Lower head to floor"]},
     {"id": "tricep_dips", "name": "Tricep Dips", "category": "Upper Body", "difficulty": "Beginner", "type": "reps", "target": 12, "icon": "chair", "description": "Using a chair or bench for triceps.", "steps": ["Hands on edge", "Lower hips", "Push up"]},
+    {"id": "bicep_curls", "name": "Bicep Curls", "category": "Upper Body", "difficulty": "Beginner", "type": "reps", "target": 12, "icon": "fitness_center", "description": "Classic elbow flexion for bicep isolation.", "steps": ["Stand tall, arms at sides", "Curl both arms to shoulder height", "Squeeze at the top", "Lower with control"]},
     {"id": "supermans", "name": "Supermans", "category": "Upper Body", "difficulty": "Beginner", "type": "reps", "target": 15, "icon": "flight", "description": "Strengthens the lower back and shoulders.", "steps": ["Lie face down", "Lift arms and legs", "Hold and lower"]},
     {"id": "inchworms", "name": "Inchworms", "category": "Upper Body", "difficulty": "Intermediate", "type": "reps", "target": 8, "icon": "bug_report", "description": "Full body stretch and shoulder stability.", "steps": ["Walk hands out to plank", "Walk hands back to feet"]},
 
@@ -499,8 +498,7 @@ def health_check():
     #Simple route to verify the backend is running.
     return jsonify({'status': 'online', 'version': '3.0.0'})
 
-if __name__ == "__main__":
-    init_db()
 if __name__ == '__main__':
+    init_db()
     # Standard port 5000 is used so Vite proxy works correctly.
     app.run(debug=True, port=5000)
