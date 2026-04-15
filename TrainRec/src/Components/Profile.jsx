@@ -14,6 +14,7 @@ const ProfilePage = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [newGoal, setNewGoal] = useState('');
+  const [fetchError, setFetchError] = useState('');
 
   // --- Account/Edit state ---
   const [isEditing, setIsEditing] = useState(false);
@@ -24,12 +25,19 @@ const ProfilePage = () => {
   const fetchProfile = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
       const res = await fetch(`${API_BASE}/me/full_profile`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+
       if (res.ok) {
         const profileData = await res.json();
         setData(profileData);
+        setFetchError('');
         setEditData({
           nickname: profileData.nickname,
           height_in: profileData.height_in,
@@ -38,15 +46,18 @@ const ProfilePage = () => {
         });
       } else if (res.status === 401) {
         navigate('/login');
+      } else {
+        setFetchError('We could not load your profile right now. Please try again in a moment.');
       }
     } catch (err) {
       console.error("Fetch error:", err);
+      setFetchError('We could not load your profile right now. Please try again in a moment.');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchProfile(); }, []);
+  useEffect(() => { fetchProfile(); }, [navigate]);
 
   // --- Goal handlers ---
   const handleAddGoal = async () => {
@@ -156,7 +167,7 @@ const ProfilePage = () => {
   };
 
   if (loading) return <div className="login-page-container">Loading...</div>;
-  if (!data) return <div className="login-page-container">Please Log In</div>;
+  if (!data) return <div className="login-page-container">{fetchError || 'Unable to load profile.'}</div>;
 
   return (
     <div

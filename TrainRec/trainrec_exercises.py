@@ -22,6 +22,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 JWT_SECRET = os.environ.get("JWT_SECRET", "replace-with-a-very-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY") or os.environ.get("VITE_GOOGLE_MAPS_KEY", "")
+DB_INITIALIZED = False
 
 cloudinary.config(
     cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
@@ -37,6 +38,7 @@ if _frontend_url:
 CORS(app, origins=_allowed_origins)
 
 def get_db():
+    ensure_db_initialized()
     db = getattr(g, "_database", None)
     if db is None:
         db = g._database = psycopg2.connect(DATABASE_URL)
@@ -61,6 +63,13 @@ def run_write(sql, params=()):
     with db.cursor() as cur:
         cur.execute(sql, params)
     db.commit()
+
+def ensure_db_initialized():
+    global DB_INITIALIZED
+    if DB_INITIALIZED or not DATABASE_URL:
+        return
+    init_db()
+    DB_INITIALIZED = True
 
 def fetch_remote_json(url, timeout=10):
     req = urllib_request.Request(url, headers={"User-Agent": "TrainRec/1.0"})
