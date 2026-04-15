@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import '../App.css'; 
+import '../App.css';
+import API_BASE from '../config';
 
 const LoginPage = () => {
   const location = useLocation();
@@ -27,7 +28,7 @@ const LoginPage = () => {
 
   const handleAction = async (endpoint, payload) => {
     try {
-      const response = await fetch(`http://localhost:5000/${endpoint}`, {
+      const response = await fetch(`${API_BASE}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

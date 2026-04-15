@@ -17,6 +17,7 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import { useTheme } from '@mui/material/styles';
 import { Link, useNavigate } from 'react-router-dom';
 import { colorModeContext } from '../themes';
+import API_BASE from '../config';
 
 const pages = ['Dashboard', 'Workouts', 'Weather', 'GymLocator'];
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
@@ -55,7 +56,7 @@ React.useEffect(() => {
       if (!token) return;
 
       try {
-        const res = await fetch('http://localhost:5000/me/full_profile', {
+        const res = await fetch(`${API_BASE}/me/full_profile`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -240,7 +241,7 @@ React.useEffect(() => {
                      alt="" /* <--- Empty string forces the default generic icon! */
                     src={
                     profilePic 
-                      ? `http://localhost:5000/static/uploads/${profilePic}` 
+                      ? profilePic 
                       : "/static/images/avatar/2.jpg"
                     }  
                     imgProps={{

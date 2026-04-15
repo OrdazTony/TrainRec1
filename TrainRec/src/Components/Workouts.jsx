@@ -19,6 +19,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import TimerIcon from '@mui/icons-material/Timer';
 import PoseTrainer from './PoseTrainer';
+import API_BASE from '../config';
 
 const CHECKLIST_KEY = 'trainrec_checklist';
 
@@ -52,7 +53,7 @@ const Workouts = () => {
   };
 
   useEffect(() => {
-    fetch('/api/exercises')
+    fetch(`${API_BASE}/api/exercises`)
       .then((res) => res.json())
       .then((data) => {
         setExercises(data);

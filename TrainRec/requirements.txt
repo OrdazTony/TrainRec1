@@ -1,0 +1,7 @@
+flask==3.0.3
+flask-cors==4.0.1
+pyjwt==2.8.0
+werkzeug==3.0.3
+psycopg2-binary==2.9.9
+cloudinary==1.40.0
+gunicorn==22.0.0

@@ -1,38 +1,41 @@
 from flask import Flask, jsonify, request, g
 from flask_cors import CORS
-import json # Used for saving and loading session metadata and landmarks in JSON format.
-import os # Used for file system operations like creating directories and saving files.
+import json
+import os
 import uuid
-import sqlite3                                
-from datetime import datetime, timedelta
+import psycopg2
+import psycopg2.extras
+import cloudinary
+import cloudinary.uploader
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
-from datetime import datetime, timezone, timedelta
-from datetime import datetime, timezone #Used for timestamping session start and end times in a standardized format.
-from pathlib import Path # Used for easier path manipulations and ensuring cross-platform compatibility when saving session data.
-from werkzeug.utils import secure_filename
-import os
+from pathlib import Path
 
 app = Flask(__name__)
 
-# This allows your team's React app (port 5173) to access this API (port 5000)
-CORS(app)
-
-# --- Image Upload Setup ---
-UPLOAD_FOLDER = 'static/uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True) # Creates the folder if it doesn't exist
-
-DB_PATH = "trainrec.db"
-JWT_SECRET = "replace-with-a-very-secret-key"
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+JWT_SECRET = os.environ.get("JWT_SECRET", "replace-with-a-very-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
+
+cloudinary.config(
+    cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.environ.get("CLOUDINARY_API_KEY"),
+    api_secret=os.environ.get("CLOUDINARY_API_SECRET"),
+    secure=True
+)
+
+_allowed_origins = ["http://localhost:5173"]
+_frontend_url = os.environ.get("FRONTEND_URL")
+if _frontend_url:
+    _allowed_origins.append(_frontend_url)
+CORS(app, origins=_allowed_origins)
 
 def get_db():
     db = getattr(g, "_database", None)
     if db is None:
-        db = g._database = sqlite3.connect(DB_PATH)
-        db.row_factory = sqlite3.Row
+        db = g._database = psycopg2.connect(DATABASE_URL)
     return db
 
 @app.teardown_appcontext
@@ -41,19 +44,41 @@ def close_connection(exception):
     if db is not None:
         db.close()
 
+def run_query(sql, params=(), one=False):
+    """Execute a SELECT and return results as dictionaries."""
+    db = get_db()
+    with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute(sql, params)
+        return cur.fetchone() if one else cur.fetchall()
+
+def run_write(sql, params=()):
+    """Execute an INSERT/UPDATE/DELETE and commit."""
+    db = get_db()
+    with db.cursor() as cur:
+        cur.execute(sql, params)
+    db.commit()
+
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = psycopg2.connect(DATABASE_URL)
     c = conn.cursor()
-    c.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, name TEXT, nickname TEXT, password_hash TEXT, sex TEXT, birthdate TEXT, height_in REAL, weight_lb REAL, fitness_activity TEXT, profile_pic TEXT, created_at TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS goals (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, goal_text TEXT, created_at TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS completed_workouts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, exercise_name TEXT, calories_burned REAL, completed_at TEXT)")
-    
-    # Safe update: Adds the column if you already have an active database
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN profile_pic TEXT")
-    except sqlite3.OperationalError:
-        pass # If it throws an error, the column already exists.
-    
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY, email TEXT UNIQUE, name TEXT, nickname TEXT,
+            password_hash TEXT, sex TEXT, birthdate TEXT, height_in REAL,
+            weight_lb REAL, fitness_activity TEXT, profile_pic TEXT, created_at TEXT
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS goals (
+            id SERIAL PRIMARY KEY, user_id INTEGER, goal_text TEXT, created_at TEXT
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS completed_workouts (
+            id SERIAL PRIMARY KEY, user_id INTEGER, exercise_name TEXT,
+            calories_burned REAL, completed_at TEXT
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -119,43 +144,28 @@ EXERCISES = [
 @app.route("/register", methods=["POST"])
 def register():
     payload = request.get_json()
-    db = get_db()
-
     email = payload.get("email", "").lower().strip()
     if not email:
         return jsonify({"error": "Email is required"}), 400
-        
     pw_hash = generate_password_hash(payload["password"])
-    
     try:
-        db.execute("""
-            INSERT INTO users (email, name, nickname, password_hash, sex, birthdate, height_in, weight_lb, fitness_activity, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        run_write("""
+            INSERT INTO users (email, name, nickname, password_hash, sex, birthdate, height_in, weight_lb, fitness_activity, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
-            email,  
-            payload.get("name"), 
-            payload.get("nickname"), 
-            pw_hash, 
-            payload.get("sex"), 
-            payload.get("birthdate"), 
-            payload.get("height_in"), 
-            payload.get("weight_lb"), 
-            payload.get("fitness_activity"), 
+            email, payload.get("name"), payload.get("nickname"), pw_hash,
+            payload.get("sex"), payload.get("birthdate"), payload.get("height_in"),
+            payload.get("weight_lb"), payload.get("fitness_activity"),
             datetime.now(timezone.utc).isoformat()
         ))
-        db.commit()
-
-        # 4. Get the user ID for the token
-        user = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-        
+        user = run_query("SELECT id FROM users WHERE email = %s", (email,), one=True)
         token = jwt.encode({
             'user_id': user['id'],
             'exp': datetime.now(timezone.utc) + timedelta(hours=24)
         }, JWT_SECRET, algorithm=JWT_ALGORITHM)
-
         return jsonify({"message": "Account Created", "token": token}), 201
-
-    except sqlite3.IntegrityError:
+    except psycopg2.errors.UniqueViolation:
+        get_db().rollback()
         return jsonify({"error": "User already exists"}), 400
     except Exception as e:
         print(f"ERROR: {e}")
@@ -166,27 +176,18 @@ def login():
     payload = request.get_json() or {}
     email = payload.get("email", "").lower()
     password = payload.get("password", "")
-
-    db = get_db()
-    # Find the user by email
-    user = db.execute("SELECT id, password_hash FROM users WHERE email = ?", (email,)).fetchone()
-
+    user = run_query("SELECT id, password_hash FROM users WHERE email = %s", (email,), one=True)
     if user and check_password_hash(user["password_hash"], password):
-        # Using now(timezone.utc) is more reliable than utcnow()
         token = jwt.encode(
             {
-                "user_id": user["id"], 
+                "user_id": user["id"],
                 "exp": datetime.now(timezone.utc) + timedelta(hours=24),
-                "iat": datetime.now(timezone.utc) # "Issued At" - ensures uniqueness
-            }, 
-            JWT_SECRET, 
+                "iat": datetime.now(timezone.utc)
+            },
+            JWT_SECRET,
             algorithm=JWT_ALGORITHM
         )
-        return jsonify({
-            "message": "Logged in successfully",
-            "token": token
-        }), 200
-
+        return jsonify({"message": "Logged in successfully", "token": token}), 200
     return jsonify({"error": "Invalid email or password"}), 401
 
 @app.route("/reset_password", methods=["POST"])
@@ -194,167 +195,117 @@ def reset_password():
     data = request.get_json()
     email = data.get("email")
     new_pw = data.get("new_password")
-
     if not email or not new_pw:
         return jsonify({"error": "Email and new password are required"}), 400
-
-    db = get_db()
-    
-    # Check if the user actually exists first
-    user = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+    user = run_query("SELECT id FROM users WHERE email = %s", (email,), one=True)
     if not user:
         return jsonify({"error": "No account found with that email"}), 404
-
-    # Update using the EMAIL, not the ID
-    db.execute("UPDATE users SET password_hash = ? WHERE email = ?", 
-               (generate_password_hash(new_pw), email))
-    db.commit()
-    
+    run_write("UPDATE users SET password_hash = %s WHERE email = %s",
+              (generate_password_hash(new_pw), email))
     return jsonify({"message": "Password updated successfully"}), 200
 
 @app.route("/me/update_profile", methods=["POST"])
 @auth_required
 def update_profile():
     payload = request.get_json()
-    db = get_db()
-    # Dynamic update for weight, height, nickname, and fitness activity
     for key in ["weight_lb", "height_in", "nickname", "fitness_activity"]:
         if key in payload:
-            db.execute(f"UPDATE users SET {key} = ? WHERE id = ?", (payload[key], request.user_id))
-    db.commit()
+            run_write(f"UPDATE users SET {key} = %s WHERE id = %s", (payload[key], request.user_id))
     return jsonify({"message": "Profile updated"})
 
 @app.route("/me/add_goal", methods=["POST"])
 @auth_required
 def add_goal():
     data = request.get_json()
-    # Using 'text' as the universal key
     content = data.get("text")
-    
     if not content:
         return jsonify({"error": "Content is empty"}), 400
-
-    db = get_db()
-    # Ensure your table column is 'goal_text'
-    db.execute("INSERT INTO goals (user_id, goal_text, created_at) VALUES (?, ?, ?)", 
-               (request.user_id, content, datetime.now().isoformat()))
-    db.commit()
+    run_write("INSERT INTO goals (user_id, goal_text, created_at) VALUES (%s, %s, %s)",
+              (request.user_id, content, datetime.now().isoformat()))
     return jsonify({"message": "Added"}), 201
 
 @app.route("/me/delete_goal/<int:goal_id>", methods=["DELETE"])
 @auth_required
 def delete_goal(goal_id):
-    db = get_db()
-    # Check if goal exists and belongs to user
-    db.execute("DELETE FROM goals WHERE id = ? AND user_id = ?", (goal_id, request.user_id))
-    db.commit()
+    run_write("DELETE FROM goals WHERE id = %s AND user_id = %s", (goal_id, request.user_id))
     return jsonify({"message": "Deleted"}), 200
 
 @app.route("/me/full_profile", methods=["GET"])
 @auth_required
 def get_full_profile():
-    db = get_db()
-    
-    # 1. Fetch User 
-    user = db.execute(
-        "SELECT name, email, nickname, sex, birthdate, height_in, weight_lb, fitness_activity, profile_pic FROM users WHERE id = ?", 
+    user = run_query(
+        "SELECT name, email, nickname, sex, birthdate, height_in, weight_lb, fitness_activity, profile_pic FROM users WHERE id = %s",
+        (request.user_id,), one=True
+    )
+    goals_rows = run_query(
+        "SELECT id, goal_text FROM goals WHERE user_id = %s ORDER BY created_at DESC",
         (request.user_id,)
-    ).fetchone()
-    
-    # 2. Fetch Goals list
-    goals_rows = db.execute(
-        "SELECT id, goal_text FROM goals WHERE user_id = ? ORDER BY created_at DESC", 
+    )
+    total_cal = run_query(
+        "SELECT SUM(calories_burned) as total FROM completed_workouts WHERE user_id = %s",
+        (request.user_id,), one=True
+    )
+    history = run_query(
+        "SELECT exercise_name, completed_at FROM completed_workouts WHERE user_id = %s ORDER BY completed_at DESC LIMIT 5",
         (request.user_id,)
-    ).fetchall()
-    
-    # 3. Fetch Total Calories
-    total_cal = db.execute(
-        "SELECT SUM(calories_burned) as total FROM completed_workouts WHERE user_id = ?", 
-        (request.user_id,)
-    ).fetchone()
-    
-    # 4. Fetch Last 5 Workouts
-    history = db.execute(
-        "SELECT exercise_name, completed_at FROM completed_workouts WHERE user_id = ? ORDER BY completed_at DESC LIMIT 5", 
-        (request.user_id,)
-    ).fetchall()
-
+    )
     if user:
         res = dict(user)
-        # Attach the fitness goals list
         res["goals"] = [{"id": row["id"], "text": row["goal_text"]} for row in goals_rows]
         res["total_calories"] = total_cal["total"] or 0
         res["history"] = [dict(row) for row in history]
         return jsonify(res)
-        
     return jsonify({"error": "User not found"}), 404
 
 @app.route("/api/workouts/complete", methods=["POST"])
+@auth_required
 def complete_workout():
     payload = request.get_json()
-    db = get_db()
-    db.execute("""INSERT INTO completed_workouts (user_id, exercise_name, calories_burned, completed_at) 
-                 VALUES (?, ?, ?, ?)""",
-               (request.user_id, payload["exercise_name"], payload["calories_burned"], datetime.utcnow().isoformat()))
-    db.commit()
+    run_write("""
+        INSERT INTO completed_workouts (user_id, exercise_name, calories_burned, completed_at)
+        VALUES (%s, %s, %s, %s)""",
+        (request.user_id, payload["exercise_name"], payload["calories_burned"],
+         datetime.now(timezone.utc).isoformat()))
     return jsonify({"message": "Workout saved!"})
 
 @app.route('/profile', methods=['GET'])
 @app.route('/me', methods=['GET'])
+@auth_required
 def get_profile():
-    auth_header = request.headers.get('Authorization')
-    token = auth_header.split(" ")[1] if auth_header else None
-    
-    if not token:
-        return jsonify({"error": "Missing token"}), 401
-
-    try:
-        # Using the bypass we discussed
-        decoded = jwt.decode(token, options={"verify_signature": False})
-        user_id = decoded.get('user_id')
-
-        db = get_db()
-        user_row = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-
-        if user_row:
-            user_data = dict(user_row)
-            user_data.pop('password_hash', None)
-            return jsonify(user_data), 200
-        else:
-            return jsonify({"error": "User not found in database"}), 404
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 401
+    user_row = run_query("SELECT * FROM users WHERE id = %s", (request.user_id,), one=True)
+    if user_row:
+        user_data = dict(user_row)
+        user_data.pop('password_hash', None)
+        return jsonify(user_data), 200
+    return jsonify({"error": "User not found in database"}), 404
     
 @app.route("/me/upload_icon", methods=["POST"])
 @auth_required
 def upload_icon():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
-    
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
-
-    # Secure the filename and add user ID so users don't overwrite each other's photos
-    filename = f"user_{request.user_id}_{secure_filename(file.filename)}"
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
-
-    # Save the filename to the database
-    db = get_db()
-    db.execute("UPDATE users SET profile_pic = ? WHERE id = ?", (filename, request.user_id))
-    db.commit()
-
-    return jsonify({"message": "Icon updated", "profile_pic": filename}), 200
+    result = cloudinary.uploader.upload(
+        file,
+        folder="trainrec/avatars",
+        public_id=f"user_{request.user_id}",
+        overwrite=True,
+        resource_type="image"
+    )
+    url = result.get("secure_url")
+    run_write("UPDATE users SET profile_pic = %s WHERE id = %s", (url, request.user_id))
+    return jsonify({"message": "Icon updated", "profile_pic": url}), 200
 
 @app.route("/me/remove_icon", methods=["DELETE"])
 @auth_required
 def remove_icon():
-    db = get_db()
-    # Set the profile_pic to NULL in the database
-    db.execute("UPDATE users SET profile_pic = NULL WHERE id = ?", (request.user_id,))
-    db.commit()
+    try:
+        cloudinary.uploader.destroy(f"trainrec/avatars/user_{request.user_id}")
+    except Exception:
+        pass
+    run_write("UPDATE users SET profile_pic = NULL WHERE id = %s", (request.user_id,))
     return jsonify({"message": "Profile picture removed"}), 200
 
 @app.route("/dashboard", methods=["GET"])
@@ -500,5 +451,7 @@ def health_check():
 
 if __name__ == '__main__':
     init_db()
-    # Standard port 5000 is used so Vite proxy works correctly.
-    app.run(debug=True, port=5000)
+    app.run(
+        debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true",
+        port=int(os.environ.get("PORT", 5000))
+    )

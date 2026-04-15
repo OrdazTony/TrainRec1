@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from '@mui/material/styles'; // <--- 1. Import useTheme
+import { useTheme } from '@mui/material/styles';
 import '../App.css';
+import API_BASE from '../config';
 
 const AccountPage = () => {
   const navigate = useNavigate();
@@ -19,7 +20,7 @@ const AccountPage = () => {
 
   const fetchAccountData = async () => {
     try {
-      const res = await fetch('http://localhost:5000/me', {
+      const res = await fetch(`${API_BASE}/me`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       const data = await res.json();
@@ -62,7 +63,7 @@ const AccountPage = () => {
       setStatusMsg({ type: 'error', text: 'Confirm password required.' });
       return;
     }
-    const res = await fetch('http://localhost:5000/me/update_profile', {
+    const res = await fetch(`${API_BASE}/me/update_profile`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
       body: JSON.stringify({ ...editData, confirm_password: authPassword })

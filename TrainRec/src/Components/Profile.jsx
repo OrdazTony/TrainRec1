@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import Avatar from '@mui/material/Avatar';
 import '../App.css';
+import API_BASE from '../config';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ const ProfilePage = () => {
   const fetchProfile = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/me/full_profile', {
+      const res = await fetch(`${API_BASE}/me/full_profile`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -39,7 +40,7 @@ const ProfilePage = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/me/add_goal', {
+      const res = await fetch(`${API_BASE}/me/add_goal`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -60,7 +61,7 @@ const ProfilePage = () => {
   const handleDeleteGoal = async (goalId) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/me/delete_goal/${goalId}`, {
+      const res = await fetch(`${API_BASE}/me/delete_goal/${goalId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -83,7 +84,7 @@ const ProfilePage = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/me/upload_icon', {
+      const res = await fetch(`${API_BASE}/me/upload_icon`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData // Browser sets Content-Type automatically for FormData
@@ -105,7 +106,7 @@ const handleDeleteImage = async (e) => {
     e.stopPropagation(); // Prevents the click from accidentally opening the file uploader
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/me/remove_icon', {
+      const res = await fetch(`${API_BASE}/me/remove_icon`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -165,7 +166,7 @@ const handleDeleteImage = async (e) => {
               
               {/* 1. Use MUI Avatar to display the profile picture and handle the default generic fallback */}
               <Avatar 
-                src={data.profile_pic ? `http://localhost:5000/static/uploads/${data.profile_pic}` : "/static/images/avatar/2.jpg"}
+                src={data.profile_pic || "/static/images/avatar/2.jpg"}
                 alt="" /* <--- Use an empty string to allow the generic default icon */
                 onClick={triggerFileInput}
                 sx={{

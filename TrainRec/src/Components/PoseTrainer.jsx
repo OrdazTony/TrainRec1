@@ -21,6 +21,7 @@ import VideocamIcon from '@mui/icons-material/Videocam';
 import StopCircleIcon from '@mui/icons-material/StopCircle';
 import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
 import { analyzeExercise, drawPose, normalizeLandmarks } from "../util/poseMath";
+import API_BASE from '../config';
 
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task';
@@ -178,7 +179,7 @@ const PoseTrainer = ({ exercise, onQuit }) => {
     frameBatchRef.current = [];
 
     try {
-      await fetch(`/api/pose/session/${sessionIdRef.current}/landmarks`, {
+      await fetch(`${API_BASE}/api/pose/session/${sessionIdRef.current}/landmarks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -202,7 +203,7 @@ const stopCamera = async () => {
 
     if(sessionIdRef.current) {
         try {
-            await fetch(`/api/pose/session/${sessionIdRef.current}/stop`, {
+            await fetch(`${API_BASE}/api/pose/session/${sessionIdRef.current}/stop`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ savedFrames, repCount: analysis.count }),
@@ -342,7 +343,7 @@ const startCamera = async (
 
         await enumerateVideoDevices();
 if (!sessionIdRef.current) {
-        const response = await fetch('/api/pose/session/start', {
+        const response = await fetch(`${API_BASE}/api/pose/session/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
