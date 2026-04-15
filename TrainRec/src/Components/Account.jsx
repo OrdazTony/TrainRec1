@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '@mui/material/styles'; // <--- 1. Import useTheme
 import '../App.css';
 
 const AccountPage = () => {
   const navigate = useNavigate();
+  const theme = useTheme(); // <--- 2. Initialize theme
+  const isDark = theme.palette.mode === 'dark'; // <--- 3. Create a boolean for easy checks
+
   const [user, setUser] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -75,11 +79,25 @@ const AccountPage = () => {
   if (loading) return <div className="login-page-container">Loading Account...</div>;
 
   return (
-    <div className="login-page-container" style={{ padding: '60px 20px' }}>
+    <div 
+      className="login-page-container" 
+      data-theme={theme.palette.mode} 
+      style={{ 
+        padding: '60px 20px', 
+        minHeight: '100vh',
+        // THIS pulls the exact background color from your MUI theme (Dashboard)
+        backgroundColor: theme.palette.background.default, 
+        color: theme.palette.text.primary,
+        transition: 'all 0.3s ease'
+      }}
+    >
       
       {/* HEADER */}
       <div style={{ width: '100%', maxWidth: '1100px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '50px' }}>
-        <h1 className="login-logo" style={{ margin: 0 }}>Account<span style={{color: '#ff9f43'}}>REC</span></h1>
+        {/* Update text color so it remains visible in light mode */}
+        <h1 className="login-logo" style={{ margin: 0, color: isDark ? '#ffffff' : '#1a1625' }}>
+          Account<span style={{color: '#ff9f43'}}>REC</span>
+        </h1>
         <button 
           className="signin-bar" 
           style={{ width: 'auto', padding: '12px 40px', background: isEditing ? '#ff4d4d' : '#9d50bb' }} 
@@ -128,7 +146,7 @@ const AccountPage = () => {
   
   <span style={{ 
     fontSize: '11px', 
-    color: 'rgba(255,255,255,0.6)', 
+    color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', /* Flips color based on mode */
     marginTop: '4px',
     fontWeight: 'bold' 
   }}>
