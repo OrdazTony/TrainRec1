@@ -302,6 +302,7 @@ import FitnessCenterRoundedIcon from '@mui/icons-material/FitnessCenterRounded';
 import AirRoundedIcon from '@mui/icons-material/AirRounded';
 import WaterDropRoundedIcon from '@mui/icons-material/WaterDropRounded';
 import MyLocationRoundedIcon from '@mui/icons-material/MyLocationRounded';
+import API_BASE from '../config';
 
 // WMO weather interpretation code → description + emoji
 function wmoInfo(code) {
@@ -324,7 +325,7 @@ const GMAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
 function GymPhoto({ gym }) {
   const H = 160;
   // Google Places photo
-  if (gym.photoRef) {
+  if (gym.photoRef && GMAPS_KEY) {
     const url = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=600&photoreference=${gym.photoRef}&key=${GMAPS_KEY}`;
     return (
       <Box sx={{ width: '100%', height: H, overflow: 'hidden', borderRadius: '12px 12px 0 0', position: 'relative', backgroundColor: '#1a1a2e' }}>
@@ -459,27 +460,17 @@ export default function Explore() {
     const fetchGyms = async () => {
       try {
         const radius = 8000; // meters (5 miles)
-        const type = 'gym';
-        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lon}&radius=${radius}&type=${type}&key=${GMAPS_KEY}`;
-        const proxy = 'https://corsproxy.io/?'; // CORS workaround for browser
-        const r = await fetch(proxy + encodeURIComponent(url));
+        const url = `${API_BASE}/api/nearby-gyms?lat=${lat}&lon=${lon}&radius=${radius}`;
+        const r = await fetch(url);
         const d = await r.json();
-        if (!d.results) throw new Error('No results');
-        const results = d.results.map((el) => ({
-          id: el.place_id,
-          name: el.name,
-          lat: el.geometry.location.lat,
-          lon: el.geometry.location.lng,
-          address: el.vicinity || null,
-          city: null,
-          phone: null,
-          website: null,
-          dist: haversine(lat, lon, el.geometry.location.lat, el.geometry.location.lng),
-          photoRef: el.photos?.[0]?.photo_reference || null,
+        if (!r.ok) throw new Error(d.error || 'Could not load nearby gyms.');
+        const results = (d.results || []).map((el) => ({
+          ...el,
+          dist: haversine(lat, lon, el.lat, el.lon),
         })).sort((a, b) => a.dist - b.dist);
         setGyms(results);
       } catch (e) {
-        setGymsError('Could not reach gym data service. Please try again later.');
+        setGymsError(e.message || 'Could not reach gym data service. Please try again later.');
       } finally {
         setGymsLoading(false);
       }

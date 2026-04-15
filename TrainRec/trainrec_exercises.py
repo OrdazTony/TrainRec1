@@ -9,6 +9,9 @@ import cloudinary
 import cloudinary.uploader
 from datetime import datetime, timedelta, timezone
 from functools import wraps
+from urllib import error as urllib_error
+from urllib import parse as urllib_parse
+from urllib import request as urllib_request
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from pathlib import Path
@@ -18,6 +21,7 @@ app = Flask(__name__)
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 JWT_SECRET = os.environ.get("JWT_SECRET", "replace-with-a-very-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
+GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY") or os.environ.get("VITE_GOOGLE_MAPS_KEY", "")
 
 cloudinary.config(
     cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
@@ -57,6 +61,11 @@ def run_write(sql, params=()):
     with db.cursor() as cur:
         cur.execute(sql, params)
     db.commit()
+
+def fetch_remote_json(url, timeout=10):
+    req = urllib_request.Request(url, headers={"User-Agent": "TrainRec/1.0"})
+    with urllib_request.urlopen(req, timeout=timeout) as resp:
+        return json.load(resp), resp.status
 
 def init_db():
     conn = psycopg2.connect(DATABASE_URL)
@@ -140,6 +149,70 @@ EXERCISES = [
 # ---------------------------------------------------------
 # API ROUTES
 # ---------------------------------------------------------
+
+@app.route("/api/nearby-gyms", methods=["GET"])
+def nearby_gyms():
+    if not GOOGLE_MAPS_API_KEY:
+        return jsonify({"error": "Gym lookup is not configured on the server."}), 500
+
+    lat_raw = request.args.get("lat")
+    lon_raw = request.args.get("lon")
+    radius_raw = request.args.get("radius", "8000")
+
+    try:
+        lat = float(lat_raw)
+        lon = float(lon_raw)
+        radius = max(1, min(int(radius_raw), 50000))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Valid lat, lon, and radius values are required."}), 400
+
+    google_url = (
+        "https://maps.googleapis.com/maps/api/place/nearbysearch/json?"
+        + urllib_parse.urlencode(
+            {
+                "location": f"{lat},{lon}",
+                "radius": radius,
+                "type": "gym",
+                "key": GOOGLE_MAPS_API_KEY,
+            }
+        )
+    )
+
+    try:
+        data, _status_code = fetch_remote_json(google_url, timeout=15)
+    except urllib_error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")[:300]
+        return jsonify({"error": "Google Places request failed.", "details": details}), 502
+    except urllib_error.URLError:
+        return jsonify({"error": "Unable to reach Google Places."}), 502
+
+    google_status = data.get("status")
+    if google_status not in {"OK", "ZERO_RESULTS"}:
+        return jsonify({
+            "error": data.get("error_message") or "Google Places request was rejected.",
+            "googleStatus": google_status,
+        }), 502
+
+    results = []
+    for place in data.get("results", []):
+        geometry = place.get("geometry", {}).get("location", {})
+        if "lat" not in geometry or "lng" not in geometry:
+            continue
+        results.append(
+            {
+                "id": place.get("place_id"),
+                "name": place.get("name"),
+                "lat": geometry.get("lat"),
+                "lon": geometry.get("lng"),
+                "address": place.get("vicinity"),
+                "city": None,
+                "phone": None,
+                "website": None,
+                "photoRef": (place.get("photos") or [{}])[0].get("photo_reference"),
+            }
+        )
+
+    return jsonify({"results": results}), 200
 
 @app.route("/register", methods=["POST"])
 def register():
