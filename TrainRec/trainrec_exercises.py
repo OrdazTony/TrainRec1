@@ -31,11 +31,22 @@ cloudinary.config(
     secure=True
 )
 
-_allowed_origins = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://127.0.0.1:5173", "http://127.0.0.1:5174"]
-_frontend_url = os.environ.get("FRONTEND_URL")
+_allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+]
+_frontend_url = (os.environ.get("FRONTEND_URL") or "").rstrip("/")
 if _frontend_url:
     _allowed_origins.append(_frontend_url)
-CORS(app, origins=_allowed_origins)
+
+CORS(
+    app,
+    origins=[*_allowed_origins, r"https://.*\.vercel\.app"],
+    supports_credentials=True,
+)
 
 def get_db():
     ensure_db_initialized()
