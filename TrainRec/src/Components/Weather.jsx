@@ -302,23 +302,31 @@ import FitnessCenterRoundedIcon from '@mui/icons-material/FitnessCenterRounded';
 import AirRoundedIcon from '@mui/icons-material/AirRounded';
 import WaterDropRoundedIcon from '@mui/icons-material/WaterDropRounded';
 import MyLocationRoundedIcon from '@mui/icons-material/MyLocationRounded';
+import WbSunnyRoundedIcon from '@mui/icons-material/WbSunnyRounded';
+import CloudQueueRoundedIcon from '@mui/icons-material/CloudQueueRounded';
+import BlurOnRoundedIcon from '@mui/icons-material/BlurOnRounded';
+import ThunderstormRoundedIcon from '@mui/icons-material/ThunderstormRounded';
+import AcUnitRoundedIcon from '@mui/icons-material/AcUnitRounded';
+import DeviceThermostatRoundedIcon from '@mui/icons-material/DeviceThermostatRounded';
+import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
+import LanguageRoundedIcon from '@mui/icons-material/LanguageRounded';
 import API_BASE from '../config';
 
-// WMO weather interpretation code → description + emoji
+// WMO weather interpretation code → description + MUI icon
 function wmoInfo(code) {
-  if (code === 0) return { desc: 'Clear Sky', emoji: '☀️' };
-  if (code === 1) return { desc: 'Mainly Clear', emoji: '🌤️' };
-  if (code === 2) return { desc: 'Partly Cloudy', emoji: '⛅' };
-  if (code === 3) return { desc: 'Overcast', emoji: '🌥️' };
-  if ([45, 48].includes(code)) return { desc: 'Foggy', emoji: '🌫️' };
-  if ([51, 53, 55, 56, 57].includes(code)) return { desc: 'Drizzle', emoji: '🌦️' };
-  if ([61, 63, 65, 66, 67].includes(code)) return { desc: 'Rain', emoji: '🌧️' };
-  if ([71, 73, 75, 77].includes(code)) return { desc: 'Snow', emoji: '❄️' };
-  if ([80, 81, 82].includes(code)) return { desc: 'Rain Showers', emoji: '🌧️' };
-  if ([85, 86].includes(code)) return { desc: 'Snow Showers', emoji: '🌨️' };
-  if (code === 95) return { desc: 'Thunderstorm', emoji: '⛈️' };
-  if ([96, 99].includes(code)) return { desc: 'Thunderstorm + Hail', emoji: '⛈️' };
-  return { desc: 'Unknown', emoji: '🌡️' };
+  if (code === 0) return { desc: 'Clear Sky', Icon: WbSunnyRoundedIcon };
+  if (code === 1) return { desc: 'Mainly Clear', Icon: WbSunnyRoundedIcon };
+  if (code === 2) return { desc: 'Partly Cloudy', Icon: CloudQueueRoundedIcon };
+  if (code === 3) return { desc: 'Overcast', Icon: CloudQueueRoundedIcon };
+  if ([45, 48].includes(code)) return { desc: 'Foggy', Icon: BlurOnRoundedIcon };
+  if ([51, 53, 55, 56, 57].includes(code)) return { desc: 'Drizzle', Icon: WaterDropRoundedIcon };
+  if ([61, 63, 65, 66, 67].includes(code)) return { desc: 'Rain', Icon: WaterDropRoundedIcon };
+  if ([71, 73, 75, 77].includes(code)) return { desc: 'Snow', Icon: AcUnitRoundedIcon };
+  if ([80, 81, 82].includes(code)) return { desc: 'Rain Showers', Icon: WaterDropRoundedIcon };
+  if ([85, 86].includes(code)) return { desc: 'Snow Showers', Icon: AcUnitRoundedIcon };
+  if (code === 95) return { desc: 'Thunderstorm', Icon: ThunderstormRoundedIcon };
+  if ([96, 99].includes(code)) return { desc: 'Thunderstorm + Hail', Icon: ThunderstormRoundedIcon };
+  return { desc: 'Unknown', Icon: DeviceThermostatRoundedIcon };
 }
 
 const GMAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
@@ -363,7 +371,21 @@ function GymPhoto({ gym }) {
           ))}
         </Box>
       )}
-      {useFallback && (<Box sx={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -100%)', fontSize: '24px', lineHeight: 1, zIndex: 2, pointerEvents: 'none', filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.7))' }}>📍</Box>)}
+      {useFallback && (
+        <LocationOnRoundedIcon
+          sx={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -100%)',
+            fontSize: 28,
+            color: '#fff',
+            zIndex: 2,
+            pointerEvents: 'none',
+            filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.7))',
+          }}
+        />
+      )}
       <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 40, background: 'linear-gradient(to top, rgba(0,0,0,0.5), transparent)', zIndex: 1, pointerEvents: 'none' }} />
     </Box>
   );
@@ -636,8 +658,9 @@ export default function Explore() {
                           )}
 
                           {gym.phone && (
-                            <Typography sx={{ fontSize: '0.78rem', color: theme.palette.text.secondary, mb: 0.3 }}>
-                              📞 {gym.phone}
+                            <Typography sx={{ fontSize: '0.78rem', color: theme.palette.text.secondary, mb: 0.3, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <PhoneRoundedIcon sx={{ fontSize: 13, color: '#ff9f43' }} />
+                              {gym.phone}
                             </Typography>
                           )}
 
@@ -646,10 +669,11 @@ export default function Explore() {
                               component="span"
                               sx={{
                                 fontSize: '0.78rem', color: '#7c4dff',
-                                display: 'block', mt: 0.3,
+                                display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.3,
                               }}
                             >
-                              🌐 {gym.website.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}
+                              <LanguageRoundedIcon sx={{ fontSize: 13 }} />
+                              {gym.website.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}
                             </Typography>
                           )}
 

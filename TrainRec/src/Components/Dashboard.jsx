@@ -23,6 +23,7 @@ import HotelRoundedIcon from "@mui/icons-material/HotelRounded";
 import PsychologyRoundedIcon from "@mui/icons-material/PsychologyRounded";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 
 const CHECKLIST_KEY = 'trainrec_checklist';
 const INTAKE_LOG_KEY = 'trainrec_intake_log';
@@ -705,11 +706,12 @@ const Dashboard = () => {
                           size="small"
                         />
                         <Chip
-                          label="✕"
+                          icon={<CloseRoundedIcon sx={{ fontSize: 16 }} />}
+                          label="Remove"
                           size="small"
                           variant="outlined"
                           onClick={() => removeFromChecklist(workout)}
-                          sx={{ cursor: 'pointer', minWidth: 0, px: 0.5 }}
+                          sx={{ cursor: 'pointer' }}
                         />
                       </Stack>
                     </Box>

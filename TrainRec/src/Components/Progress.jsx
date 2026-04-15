@@ -18,6 +18,10 @@ import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import RadioButtonUncheckedRoundedIcon from "@mui/icons-material/RadioButtonUncheckedRounded";
 import FitnessCenterRoundedIcon from "@mui/icons-material/FitnessCenterRounded";
+import DirectionsBikeRoundedIcon from "@mui/icons-material/DirectionsBikeRounded";
+import PoolRoundedIcon from "@mui/icons-material/PoolRounded";
+import AccessibilityNewRoundedIcon from "@mui/icons-material/AccessibilityNewRounded";
+import FlashOnRoundedIcon from "@mui/icons-material/FlashOnRounded";
 import { useNavigate } from "react-router-dom";
 import API_BASE from "../config";
 
@@ -338,12 +342,12 @@ const Progress = () => {
   // category icon mapping
   const catIcon = (cat) => {
     const c = (cat || "").toLowerCase();
-    if (c.includes("run") || c.includes("cardio")) return "🏃";
-    if (c.includes("strength") || c.includes("weight")) return "🏋️";
-    if (c.includes("yoga") || c.includes("stretch")) return "🧘";
-    if (c.includes("cycle") || c.includes("bike")) return "🚴";
-    if (c.includes("swim")) return "🏊";
-    return "⚡";
+    if (c.includes("run") || c.includes("cardio")) return DirectionsRunRoundedIcon;
+    if (c.includes("strength") || c.includes("weight")) return FitnessCenterRoundedIcon;
+    if (c.includes("yoga") || c.includes("stretch")) return AccessibilityNewRoundedIcon;
+    if (c.includes("cycle") || c.includes("bike")) return DirectionsBikeRoundedIcon;
+    if (c.includes("swim")) return PoolRoundedIcon;
+    return FlashOnRoundedIcon;
   };
 
   return (
@@ -503,6 +507,7 @@ const Progress = () => {
                   <Grid container spacing={1.5}>
                     {workoutOptions.map((workout) => {
                       const done = completedWorkouts.includes(workout.name);
+                      const WorkoutCategoryIcon = catIcon(workout.category);
                       return (
                         <Grid key={workout.name} size={{ xs: 12, sm: 6, md: 4 }}>
                           <Box sx={{
@@ -513,13 +518,12 @@ const Progress = () => {
                               : alpha(theme.palette.background.paper, 0.6),
                             transition: "all 0.25s ease",
                           }}>
-                            {/* Emoji category icon */}
                             <Box sx={{
                               width: 38, height: 38, borderRadius: 2, flexShrink: 0,
-                              display: "grid", placeItems: "center", fontSize: "1.2rem",
+                              display: "grid", placeItems: "center",
                               bgcolor: done ? alpha("#9b6bff", 0.15) : alpha(theme.palette.action.hover, 0.5),
                             }}>
-                              {catIcon(workout.category)}
+                              <WorkoutCategoryIcon sx={{ fontSize: 20, color: done ? "#9b6bff" : "text.secondary" }} />
                             </Box>
                             <Box sx={{ flex: 1, minWidth: 0 }}>
                               <Typography variant="body2" sx={{
@@ -594,7 +598,13 @@ const Progress = () => {
                           }}>
                             {goal.text}
                           </Typography>
-                          <Chip label={done ? "✓" : "–"} color={done ? "success" : "default"} size="small" variant={done ? "filled" : "outlined"} />
+                          <Chip
+                            icon={done ? <CheckCircleRoundedIcon /> : <RadioButtonUncheckedRoundedIcon />}
+                            label={done ? "Completed" : "Pending"}
+                            color={done ? "success" : "default"}
+                            size="small"
+                            variant={done ? "filled" : "outlined"}
+                          />
                         </Box>
                       );
                     })}

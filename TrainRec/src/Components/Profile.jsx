@@ -156,12 +156,12 @@ const ProfilePage = () => {
     const day = date.getUTCDate();
     const month = date.getUTCMonth() + 1;
     const signs = [
-      { name: "Capricorn ♑", m: 1, d: 20 }, { name: "Aquarius ♒", m: 2, d: 19 },
-      { name: "Pisces ♓", m: 3, d: 20 }, { name: "Aries ♈", m: 4, d: 20 },
-      { name: "Taurus ♉", m: 5, d: 21 }, { name: "Gemini ♊", m: 6, d: 21 },
-      { name: "Cancer ♋", m: 7, d: 23 }, { name: "Leo ♌", m: 8, d: 23 },
-      { name: "Virgo ♍", m: 9, d: 23 }, { name: "Libra ♎", m: 10, d: 23 },
-      { name: "Scorpio ♏", m: 11, d: 22 }, { name: "Sagittarius ♐", m: 12, d: 22 }
+      { name: "Capricorn", m: 1, d: 20 }, { name: "Aquarius", m: 2, d: 19 },
+      { name: "Pisces", m: 3, d: 20 }, { name: "Aries", m: 4, d: 20 },
+      { name: "Taurus", m: 5, d: 21 }, { name: "Gemini", m: 6, d: 21 },
+      { name: "Cancer", m: 7, d: 23 }, { name: "Leo", m: 8, d: 23 },
+      { name: "Virgo", m: 9, d: 23 }, { name: "Libra", m: 10, d: 23 },
+      { name: "Scorpio", m: 11, d: 22 }, { name: "Sagittarius", m: 12, d: 22 }
     ];
     return (signs.find(s => (month === s.m && day <= s.d) || month < s.m) || signs[0]).name;
   };

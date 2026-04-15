@@ -19,6 +19,8 @@ import {
 //
 import SearchIcon from '@mui/icons-material/Search';
 import TimerIcon from '@mui/icons-material/Timer';
+import PlaylistAddRoundedIcon from '@mui/icons-material/PlaylistAddRounded';
+import ChecklistRoundedIcon from '@mui/icons-material/ChecklistRounded';
 import PoseTrainer from './PoseTrainer';
 import API_BASE from '../config';
 
@@ -348,6 +350,7 @@ const Workouts = () => {
                       variant={checklist.some((c) => c.id === ex.id) ? 'contained' : 'outlined'}
                       fullWidth
                       onClick={() => toggleChecklist(ex)}
+                      startIcon={checklist.some((c) => c.id === ex.id) ? <ChecklistRoundedIcon /> : <PlaylistAddRoundedIcon />}
                       sx={{
                         fontWeight: 700,
                         borderRadius: 2,
@@ -356,7 +359,7 @@ const Workouts = () => {
                         bgcolor: checklist.some((c) => c.id === ex.id) ? primaryBlue : 'transparent',
                       }}
                     >
-                      {checklist.some((c) => c.id === ex.id) ? '✓ In Checklist' : '+ Add to Checklist'}
+                      {checklist.some((c) => c.id === ex.id) ? 'In Checklist' : 'Add to Checklist'}
                     </Button>
                   </CardContent>
                 </Card>
