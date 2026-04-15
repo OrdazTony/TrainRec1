@@ -358,39 +358,76 @@ const Progress = () => {
           <Grid size={{ xs: 12, lg: 8 }}>
             <Stack spacing={3}>
 
-              {/* Weekly summary */}
+              {/* Weekly activity rings */}
               <Card sx={{ ...sectionCard, p: { xs: 2, md: 3 } }}>
-                <Stack direction={{ xs: "column", md: "row" }} spacing={3} alignItems={{ xs: "stretch", md: "center" }}>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>Weekly Summary</Typography>
-                    <Typography variant="body2" sx={{ ...softText, maxWidth: 520 }}>
-                      This week now reflects your recorded calorie burn, completed workouts, and checked goals instead of placeholder data.
+                <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1.5} sx={{ mb: 2 }}>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>Weekly Activity Rings</Typography>
+                    <Typography variant="body2" sx={softText}>
+                      {recordedDays.length} recorded days this week. Average score {weeklyAverage}%{bestDay ? `, best day ${bestDay.day}` : ""}.
                     </Typography>
-
-                    <Grid container spacing={1.5} sx={{ mt: 1.5 }}>
-                      {[
-                        { label: "Days logged", value: `${recordedDays.length} / 7`, color: "#36b7d7" },
-                        { label: "Weekly average", value: `${weeklyAverage}%`, color: "#9b6bff" },
-                        { label: "Best day", value: bestDay ? `${bestDay.day} ${bestDay.score}%` : "No data yet", color: "#22c55e" },
-                        { label: "Today", value: `${todaySnapshot.score}%`, color: "#ff9f43" },
-                      ].map(({ label, value, color }) => (
-                        <Grid key={label} size={{ xs: 12, sm: 6 }}>
-                          <Box sx={{ p: 1.5, borderRadius: 3, border: `1px solid ${alpha(color, 0.22)}`, bgcolor: alpha(color, 0.08) }}>
-                            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.35 }}>{label}</Typography>
-                            <Typography sx={{ fontWeight: 800 }}>{value}</Typography>
-                          </Box>
-                        </Grid>
-                      ))}
-                    </Grid>
                   </Box>
-
-                  <RingGroup
-                    size={188}
-                    stroke={14}
-                    values={{ calories: calorieProgress, workout: workoutProgress, goals: goalProgress }}
-                    centerLabel={`${todaySnapshot.score}%`}
-                    centerCaption="today"
+                  <Chip
+                    label={`Today ${todaySnapshot.score}%`}
+                    sx={{ bgcolor: alpha(theme.palette.primary.main, 0.12), color: "primary.main", fontWeight: 700 }}
                   />
+                </Stack>
+                <Grid container spacing={1.5}>
+                  {weeklyData.map((entry) => (
+                    <Grid key={entry.date} size={{ xs: 6, sm: 4, md: 3, lg: 3 }}>
+                      <Box sx={{
+                        p: 1.5,
+                        borderRadius: 3,
+                        height: "100%",
+                        border: `1px solid ${alpha(theme.palette.primary.main, entry.hasData ? 0.18 : 0.08)}`,
+                        bgcolor: alpha(theme.palette.background.paper, entry.hasData ? 0.68 : 0.45),
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 1,
+                      }}>
+                        <Box sx={{ textAlign: "center" }}>
+                          <Typography sx={{ fontWeight: 800 }}>{entry.day}</Typography>
+                          <Typography variant="caption" sx={softText}>{entry.label}</Typography>
+                        </Box>
+                        <RingGroup
+                          size={94}
+                          stroke={7}
+                          values={entry}
+                          centerLabel={`${entry.score}%`}
+                          centerCaption={entry.hasData ? "score" : "none"}
+                        />
+                        <Stack spacing={0.35} sx={{ width: "100%" }}>
+                          {[
+                            { label: "Burn", value: entry.calories, color: "#ff9f43" },
+                            { label: "Work", value: entry.workout, color: "#36b7d7" },
+                            { label: "Goals", value: entry.goals, color: "#22c55e" },
+                          ].map(({ label, value, color }) => (
+                            <Stack key={label} direction="row" justifyContent="space-between" alignItems="center">
+                              <Stack direction="row" spacing={0.6} alignItems="center">
+                                <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: color }} />
+                                <Typography variant="caption" sx={softText}>{label}</Typography>
+                              </Stack>
+                              <Typography variant="caption" sx={{ fontWeight: 700 }}>{value}%</Typography>
+                            </Stack>
+                          ))}
+                        </Stack>
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
+                  {[
+                    { color: "#36b7d7", label: "Workouts" },
+                    { color: "#ff9f43", label: "Calories" },
+                    { color: "#22c55e", label: "Goals" },
+                  ].map(({ color, label }) => (
+                    <Stack key={label} direction="row" spacing={0.5} alignItems="center">
+                      <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: color }} />
+                      <Typography variant="caption" sx={softText}>{label}</Typography>
+                    </Stack>
+                  ))}
                 </Stack>
               </Card>
 
@@ -519,69 +556,6 @@ const Progress = () => {
                     })}
                   </Stack>
                 )}
-              </Card>
-
-              {/* Weekly activity rings */}
-              <Card sx={{ ...sectionCard, p: { xs: 2, md: 2.5 } }}>
-                <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>Weekly Activity Rings</Typography>
-                <Typography variant="body2" sx={{ ...softText, mb: 2 }}>Each day shows recorded calorie, workout, and goal progress.</Typography>
-                <Grid container spacing={1.5}>
-                  {weeklyData.map((entry) => (
-                    <Grid key={entry.date} size={{ xs: 6, sm: 4, md: 3, lg: 6 }}>
-                      <Box sx={{
-                        p: 1.5,
-                        borderRadius: 3,
-                        height: "100%",
-                        border: `1px solid ${alpha(theme.palette.primary.main, entry.hasData ? 0.18 : 0.08)}`,
-                        bgcolor: alpha(theme.palette.background.paper, entry.hasData ? 0.68 : 0.45),
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 1,
-                      }}>
-                        <Box sx={{ textAlign: "center" }}>
-                          <Typography sx={{ fontWeight: 800 }}>{entry.day}</Typography>
-                          <Typography variant="caption" sx={softText}>{entry.label}</Typography>
-                        </Box>
-                        <RingGroup
-                          size={94}
-                          stroke={7}
-                          values={entry}
-                          centerLabel={`${entry.score}%`}
-                          centerCaption={entry.hasData ? "score" : "none"}
-                        />
-                        <Stack spacing={0.35} sx={{ width: "100%" }}>
-                          {[
-                            { label: "Burn", value: entry.calories, color: "#ff9f43" },
-                            { label: "Work", value: entry.workout, color: "#36b7d7" },
-                            { label: "Goals", value: entry.goals, color: "#22c55e" },
-                          ].map(({ label, value, color }) => (
-                            <Stack key={label} direction="row" justifyContent="space-between" alignItems="center">
-                              <Stack direction="row" spacing={0.6} alignItems="center">
-                                <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: color }} />
-                                <Typography variant="caption" sx={softText}>{label}</Typography>
-                              </Stack>
-                              <Typography variant="caption" sx={{ fontWeight: 700 }}>{value}%</Typography>
-                            </Stack>
-                          ))}
-                        </Stack>
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
-                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
-                  {[
-                    { color: "#36b7d7", label: "Workouts" },
-                    { color: "#ff9f43", label: "Calories" },
-                    { color: "#22c55e", label: "Goals" },
-                  ].map(({ color, label }) => (
-                    <Stack key={label} direction="row" spacing={0.5} alignItems="center">
-                      <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: color }} />
-                      <Typography variant="caption" sx={softText}>{label}</Typography>
-                    </Stack>
-                  ))}
-                </Stack>
               </Card>
 
             </Stack>
